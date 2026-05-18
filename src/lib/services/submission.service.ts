@@ -6,7 +6,7 @@ import type {
   SubmissionAnswer,
 } from "@/lib/domain/types";
 import { repositories } from "@/lib/repositories";
-import { isValidIsraeliId, normalizeIsraeliId } from "@/lib/validators/israeli-id";
+import { normalizeIsraeliId } from "@/lib/validators/israeli-id";
 import {
   isValidIsraeliPhone,
   normalizePhone,
@@ -17,21 +17,17 @@ import { questionnaireService } from "@/lib/services/questionnaire.service";
 export class SubmissionService {
   async submit(
     questionnaire: Questionnaire,
-    nationalId: string,
     phone: string,
-    answers: SubmissionAnswer[]
+    answers: SubmissionAnswer[],
+    nationalId = ""
   ): Promise<Submission> {
     const availability = questionnaireService.isAvailable(questionnaire);
     if (!availability.available) {
       throw new Error(availability.reason ?? "השאלון אינו זמין");
     }
 
-    const normalizedId = normalizeIsraeliId(nationalId);
     const normalizedPhone = normalizePhone(phone);
 
-    if (!isValidIsraeliId(normalizedId)) {
-      throw new Error("מספר תעודת זהות לא תקין");
-    }
     if (!isValidIsraeliPhone(normalizedPhone)) {
       throw new Error("מספר טלפון לא תקין");
     }
@@ -54,7 +50,7 @@ export class SubmissionService {
     const submission: Submission = {
       id: uuidv4(),
       questionnaireId: questionnaire.id,
-      nationalId: normalizedId,
+      nationalId: nationalId.trim(),
       phone: normalizedPhone,
       answers,
       submittedAt: new Date().toISOString(),

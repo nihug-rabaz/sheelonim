@@ -15,14 +15,19 @@ export function exportSubmissionPdf(
   doc.text(questionnaireTitle, 105, 20, { align: "center" });
 
   doc.setFontSize(11);
-  doc.text(`ת.ז.: ${submission.nationalId}`, 200, 35, { align: "right" });
-  doc.text(`טלפון: ${formatPhoneDisplay(submission.phone)}`, 200, 42, {
+  let detailY = 35;
+  if (submission.nationalId.trim()) {
+    doc.text(`ת.ז.: ${submission.nationalId}`, 200, detailY, { align: "right" });
+    detailY += 7;
+  }
+  doc.text(`טלפון: ${formatPhoneDisplay(submission.phone)}`, 200, detailY, {
     align: "right",
   });
+  detailY += 7;
   doc.text(
     `תאריך: ${new Intl.DateTimeFormat("he-IL").format(new Date(submission.submittedAt))}`,
     200,
-    49,
+    detailY,
     { align: "right" }
   );
 

@@ -3,7 +3,7 @@ import { questionnaireService, submissionService } from "@/lib/services";
 import type { SubmissionAnswer } from "@/lib/domain/types";
 
 export async function POST(request: Request) {
-  const { slug, nationalId, phone, answers } = await request.json();
+  const { slug, phone, answers } = await request.json();
 
   const questionnaire = await questionnaireService.getBySlug(slug);
   if (!questionnaire) {
@@ -13,7 +13,6 @@ export async function POST(request: Request) {
   try {
     const submission = await submissionService.submit(
       questionnaire,
-      nationalId,
       phone,
       answers as SubmissionAnswer[]
     );

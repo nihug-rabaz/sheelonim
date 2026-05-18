@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Download, Send } from "lucide-react";
 import type { Question, QuestionSection, SubmissionAnswer } from "@/lib/domain/types";
-import { isValidIsraeliId, normalizeIsraeliId } from "@/lib/validators/israeli-id";
 import {
+  formatPhoneDisplay,
   isValidIsraeliPhone,
   normalizePhone,
 } from "@/lib/validators/phone";
@@ -73,7 +73,6 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     null
   );
   const [step, setStep] = useState<"identify" | "form" | "done">("identify");
-  const [nationalId, setNationalId] = useState("");
   const [phone, setPhone] = useState("");
   const [answers, setAnswers] = useState<Record<string, SubmissionAnswer["value"]>>(
     {}
@@ -91,7 +90,6 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   const [thankYou, setThankYou] = useState("");
   const [lastSubmission, setLastSubmission] = useState<{
     answers: SubmissionAnswer[];
-    nationalId: string;
     phone: string;
     submittedAt: string;
   } | null>(null);
@@ -109,9 +107,6 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
 
   const validateIdentity = () => {
     const errs: Record<string, string> = {};
-    if (!isValidIsraeliId(nationalId)) {
-      errs.nationalId = "מספר תעודת זהות לא תקין";
-    }
     if (!isValidIsraeliPhone(phone)) {
       errs.phone = "מספר טלפון לא תקין (05X-XXXXXXX)";
     }
@@ -243,7 +238,6 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         slug,
-        nationalId: normalizeIsraeliId(nationalId),
         phone: normalizePhone(phone),
         answers: payload,
       }),
@@ -257,7 +251,6 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     setThankYou(data.thankYouMessage);
     setLastSubmission({
       answers: payload,
-      nationalId: normalizeIsraeliId(nationalId),
       phone: normalizePhone(phone),
       submittedAt: new Date().toISOString(),
     });
@@ -269,7 +262,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     exportSubmissionPdf(questionnaire.title, questionnaire.questions, {
       id: "local",
       questionnaireId: questionnaire.id,
-      nationalId: lastSubmission.nationalId,
+      nationalId: "",
       phone: lastSubmission.phone,
       answers: lastSubmission.answers,
       submittedAt: lastSubmission.submittedAt,
@@ -336,22 +329,10 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         {step === "identify" ? (
           <SectionCard
             title="זיהוי לפני מילוי השאלון"
-            description="נא להזין פרטים לזיהוי לפני תחילת המילוי"
+            description="נא להזין מספר טלפון לזיהוי לפני תחילת המילוי"
             icon={UserRound}
           >
             <div className="space-y-5">
-              <FormField label="תעודת זהות" htmlFor="tz">
-                <Input
-                  id="tz"
-                  value={nationalId}
-                  onChange={(e) => setNationalId(e.target.value)}
-                  placeholder="9 ספרות"
-                  inputMode="numeric"
-                />
-                {errors.nationalId && (
-                  <p className="text-sm text-destructive">{errors.nationalId}</p>
-                )}
-              </FormField>
               <FormField label="מספר טלפון" htmlFor="phone">
                 <Input
                   id="phone"
@@ -359,7 +340,13 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="05X-XXXXXXX"
                   inputMode="tel"
+                  dir="ltr"
                 />
+                {phone && formatPhoneDisplay(phone) !== phone && (
+                  <p className="mt-1 text-xs text-muted-foreground" dir="ltr">
+                    {formatPhoneDisplay(phone)}
+                  </p>
+                )}
                 {errors.phone && (
                   <p className="text-sm text-destructive">{errors.phone}</p>
                 )}
