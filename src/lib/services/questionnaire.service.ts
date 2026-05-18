@@ -282,6 +282,7 @@ export class QuestionnaireService {
         id: f.id ?? uuidv4(),
         label: f.label.trim(),
         required: f.required,
+        inputType: f.inputType ?? "TEXT",
       }));
     const noFields = config.noFields
       ?.filter((f) => f.label.trim())
@@ -289,6 +290,7 @@ export class QuestionnaireService {
         id: f.id ?? uuidv4(),
         label: f.label.trim(),
         required: f.required,
+        inputType: f.inputType ?? "TEXT",
       }));
     if (!yesFields?.length && !noFields?.length) return undefined;
     return {

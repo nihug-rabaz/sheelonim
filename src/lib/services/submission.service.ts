@@ -7,7 +7,10 @@ import type {
 } from "@/lib/domain/types";
 import { isFollowUpRequired } from "@/lib/follow-up-logic";
 import { isAnswerableQuestion } from "@/lib/question-utils";
-import { getYesNoBranchFields } from "@/lib/yes-no-logic";
+import {
+  getYesNoBranchFields,
+  validateYesNoBranchFieldValue,
+} from "@/lib/yes-no-logic";
 import { repositories } from "@/lib/repositories";
 import {
   isValidIsraeliPhone,
@@ -98,8 +101,14 @@ export class SubmissionService {
           answer?.value
         );
         for (const field of fields) {
-          if (field.required && !answer?.branchFieldTexts?.[field.id]?.trim()) {
-            throw new Error(`שדה חובה לא מולא: ${field.label}`);
+          const err = validateYesNoBranchFieldValue(
+            field,
+            answer?.branchFieldTexts?.[field.id]
+          );
+          if (err) {
+            throw new Error(
+              `שדה לא תקין (${field.label}): ${err}`
+            );
           }
         }
       }

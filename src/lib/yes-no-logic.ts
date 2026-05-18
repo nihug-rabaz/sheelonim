@@ -4,6 +4,11 @@ import type {
   SubmissionAnswer,
   YesNoBranchField,
 } from "@/lib/domain/types";
+import {
+  formatPhoneDisplay,
+  isValidIsraeliPhone,
+  normalizePhone,
+} from "@/lib/validators/phone";
 
 export function getYesNoBranchFields(
   config: QuestionYesNoConfig | undefined,
@@ -15,6 +20,53 @@ export function getYesNoBranchFields(
   return [];
 }
 
+export function getYesNoBranchFieldInputType(
+  field: YesNoBranchField
+): NonNullable<YesNoBranchField["inputType"]> {
+  return field.inputType ?? "TEXT";
+}
+
+export function validateYesNoBranchFieldValue(
+  field: YesNoBranchField,
+  value: string | undefined
+): string | undefined {
+  const trimmed = value?.trim() ?? "";
+  if (field.required && !trimmed) return "שדה חובה";
+  if (!trimmed) return undefined;
+
+  const inputType = getYesNoBranchFieldInputType(field);
+  if (inputType === "PHONE" && !isValidIsraeliPhone(trimmed)) {
+    return "מספר טלפון לא תקין (05X-XXXXXXX)";
+  }
+  if (inputType === "NUMBER" && !/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    return "יש להזין מספר תקין";
+  }
+  return undefined;
+}
+
+export function normalizeYesNoBranchFieldValue(
+  field: YesNoBranchField,
+  value: string
+): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (getYesNoBranchFieldInputType(field) === "PHONE") {
+    return normalizePhone(trimmed);
+  }
+  return trimmed;
+}
+
+export function formatYesNoBranchFieldValue(
+  field: YesNoBranchField,
+  value: string
+): string {
+  if (!value.trim()) return "";
+  if (getYesNoBranchFieldInputType(field) === "PHONE") {
+    return formatPhoneDisplay(value);
+  }
+  return value.trim();
+}
+
 export function validateYesNoBranchFields(
   question: Question,
   value: SubmissionAnswer["value"] | undefined,
@@ -22,9 +74,8 @@ export function validateYesNoBranchFields(
 ): string | undefined {
   const fields = getYesNoBranchFields(question.yesNoConfig, value);
   for (const field of fields) {
-    if (field.required && !texts?.[field.id]?.trim()) {
-      return field.label || "שדה חובה";
-    }
+    const err = validateYesNoBranchFieldValue(field, texts?.[field.id]);
+    if (err) return field.label || err;
   }
   return undefined;
 }

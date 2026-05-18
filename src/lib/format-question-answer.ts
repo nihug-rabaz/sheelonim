@@ -1,7 +1,10 @@
 import type { Question, SubmissionAnswer } from "@/lib/domain/types";
 import { formatRatingAnswer } from "@/lib/rating-scale";
 import { isLabelQuestion } from "@/lib/question-utils";
-import { getYesNoBranchFields } from "@/lib/yes-no-logic";
+import {
+  formatYesNoBranchFieldValue,
+  getYesNoBranchFields,
+} from "@/lib/yes-no-logic";
 
 function formatMainAnswer(
   question: Question,
@@ -46,7 +49,9 @@ export function formatQuestionAnswer(
   const branchFields = getYesNoBranchFields(question.yesNoConfig, value);
   for (const field of branchFields) {
     const text = branchFieldTexts?.[field.id]?.trim();
-    if (text) parts.push(`${field.label}: ${text}`);
+    if (text) {
+      parts.push(`${field.label}: ${formatYesNoBranchFieldValue(field, text)}`);
+    }
   }
 
   const follow = followUpText?.trim();

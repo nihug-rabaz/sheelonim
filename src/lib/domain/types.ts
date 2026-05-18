@@ -93,10 +93,13 @@ export interface QuestionFollowUp {
   exemptFromRequiredOptionIds?: string[];
 }
 
+export type YesNoBranchFieldInputType = "TEXT" | "NUMBER" | "PHONE";
+
 export interface YesNoBranchField {
   id: string;
   label: string;
   required: boolean;
+  inputType?: YesNoBranchFieldInputType;
 }
 
 export interface QuestionYesNoConfig {

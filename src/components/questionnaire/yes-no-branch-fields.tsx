@@ -2,18 +2,32 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
-import type { QuestionYesNoConfig, YesNoBranchField } from "@/lib/domain/types";
+import type {
+  QuestionYesNoConfig,
+  YesNoBranchField,
+  YesNoBranchFieldInputType,
+} from "@/lib/domain/types";
+import { getYesNoBranchFieldInputType } from "@/lib/yes-no-logic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+
+const INPUT_TYPE_OPTIONS: { value: YesNoBranchFieldInputType; label: string }[] = [
+  { value: "TEXT", label: "טקסט" },
+  { value: "NUMBER", label: "מספר" },
+  { value: "PHONE", label: "טלפון" },
+];
 
 function emptyConfig(): QuestionYesNoConfig {
   return { yesFields: [], noFields: [] };
 }
 
 function addField(fields: YesNoBranchField[] | undefined): YesNoBranchField[] {
-  return [...(fields ?? []), { id: uuidv4(), label: "", required: false }];
+  return [
+    ...(fields ?? []),
+    { id: uuidv4(), label: "", required: false, inputType: "TEXT" },
+  ];
 }
 
 function BranchSection({
@@ -48,7 +62,7 @@ function BranchSection({
               key={field.id}
               className="flex flex-wrap items-end gap-2 rounded-lg border border-border/40 p-2"
             >
-              <div className="min-w-[140px] flex-1">
+              <div className="min-w-[120px] flex-1">
                 <Label className="text-xs">תווית</Label>
                 <Input
                   value={field.label}
@@ -60,6 +74,27 @@ function BranchSection({
                   placeholder="לדוגמה: פרט את הפער"
                   className="mt-1"
                 />
+              </div>
+              <div className="w-28">
+                <Label className="text-xs">סוג שדה</Label>
+                <select
+                  value={getYesNoBranchFieldInputType(field)}
+                  onChange={(e) => {
+                    const next = [...fields];
+                    next[index] = {
+                      ...field,
+                      inputType: e.target.value as YesNoBranchFieldInputType,
+                    };
+                    onChange(next);
+                  }}
+                  className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 text-sm"
+                >
+                  {INPUT_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-center gap-2 pb-1">
                 <Switch
@@ -111,7 +146,7 @@ export function BuilderYesNoBranchFields({
       <div>
         <p className="text-sm font-medium">שדות מילוי לפי תשובה</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          הוסף שדות שיוצגו רק כשהמשיב בוחר כן או לא. שדות חובה יחולו רק כשהתשובה הרלוונטית נבחרה.
+          הוסף שדות שיוצגו רק כשהמשיב בוחר כן או לא. לכל שדה ניתן לבחור טקסט, מספר או טלפון.
         </p>
       </div>
       <BranchSection
@@ -139,6 +174,54 @@ export function BuilderYesNoBranchFields({
   );
 }
 
+function PublicBranchFieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: YesNoBranchField;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputType = getYesNoBranchFieldInputType(field);
+
+  if (inputType === "PHONE") {
+    return (
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-2"
+        dir="ltr"
+        inputMode="tel"
+        placeholder="05X-XXXXXXX"
+      />
+    );
+  }
+
+  if (inputType === "NUMBER") {
+    return (
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-2"
+        dir="ltr"
+        inputMode="decimal"
+        type="text"
+        placeholder="0"
+      />
+    );
+  }
+
+  return (
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="mt-2"
+      placeholder="הקלד/י כאן..."
+    />
+  );
+}
+
 export function PublicYesNoBranchFields({
   fields,
   texts,
@@ -162,11 +245,10 @@ export function PublicYesNoBranchFields({
             {field.label}
             {field.required && <span className="text-destructive"> *</span>}
           </Label>
-          <Input
+          <PublicBranchFieldInput
+            field={field}
             value={texts[field.id] ?? ""}
-            onChange={(e) => onChange(field.id, e.target.value)}
-            className="mt-2"
-            placeholder="הקלד/י כאן..."
+            onChange={(text) => onChange(field.id, text)}
           />
           {errors[`${questionId}:yn:${field.id}`] && (
             <p className="mt-1 text-sm text-destructive">

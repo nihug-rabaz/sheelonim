@@ -21,7 +21,11 @@ import {
   PublicRatingSectionMatrix,
 } from "@/components/questionnaire/rating-scale-fields";
 import { isFollowUpRequired, isFollowUpVisible } from "@/lib/follow-up-logic";
-import { getYesNoBranchFields } from "@/lib/yes-no-logic";
+import {
+  getYesNoBranchFields,
+  normalizeYesNoBranchFieldValue,
+  validateYesNoBranchFieldValue,
+} from "@/lib/yes-no-logic";
 import {
   countAnswerableQuestions,
   isAnswerableQuestion,
@@ -177,9 +181,11 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
       if (q.type === "YES_NO" && q.yesNoConfig) {
         const branchFields = getYesNoBranchFields(q.yesNoConfig, val);
         for (const field of branchFields) {
-          if (field.required && !yesNoFieldTexts[q.id]?.[field.id]?.trim()) {
-            errs[`${q.id}:yn:${field.id}`] = "×©×“×” ×—×•×‘×”";
-          }
+          const err = validateYesNoBranchFieldValue(
+            field,
+            yesNoFieldTexts[q.id]?.[field.id]
+          );
+          if (err) errs[`${q.id}:yn:${field.id}`] = err;
         }
       }
     }
@@ -287,10 +293,25 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         const texts = optionTexts[questionId];
         const followUpText = followUpTexts[questionId];
         const branchTexts = yesNoFieldTexts[questionId];
+        const question = questionnaire.questions.find((item) => item.id === questionId);
         const trimmedBranch =
           branchTexts &&
+          question?.yesNoConfig &&
           Object.fromEntries(
-            Object.entries(branchTexts).filter(([, t]) => t.trim())
+            Object.entries(branchTexts)
+              .filter(([, t]) => t.trim())
+              .map(([fieldId, text]) => {
+                const field = getYesNoBranchFields(
+                  question.yesNoConfig,
+                  value
+                ).find((f) => f.id === fieldId);
+                return [
+                  fieldId,
+                  field
+                    ? normalizeYesNoBranchFieldValue(field, text)
+                    : text.trim(),
+                ];
+              })
           );
         return {
           questionId,
