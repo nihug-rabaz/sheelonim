@@ -1,0 +1,277 @@
+import { v4 as uuidv4 } from "uuid";
+import { emptyLogoSettings } from "@/lib/brand-logos";
+import { emptyRespondentAllowlist } from "@/lib/respondent-allowlist";
+import type {
+  Question,
+  Questionnaire,
+  QuestionnaireLogoSettings,
+  QuestionnaireRespondentAllowlist,
+  QuestionSection,
+  QuestionType,
+  SectionType,
+} from "@/lib/domain/types";
+import { normalizeRatingLabels } from "@/lib/rating-scale";
+import { DEFAULT_THANK_YOU_MESSAGE } from "@/lib/domain/types";
+import { repositories } from "@/lib/repositories";
+import { generateSlug } from "@/lib/utils";
+
+export interface QuestionSectionInput {
+  id?: string;
+  title: string;
+  description?: string;
+  type?: SectionType;
+  minRating?: number;
+  maxRating?: number;
+  ratingLabels?: { value: number; label: string }[];
+}
+
+export interface QuestionInput {
+  type: QuestionType;
+  title: string;
+  required: boolean;
+  sectionId: string;
+  allowMultiple?: boolean;
+  options?: { label: string; allowFreeText?: boolean }[];
+  followUp?: { label: string; required: boolean } | null;
+  minRating?: number;
+  maxRating?: number;
+  ratingLabels?: { value: number; label: string }[];
+}
+
+export interface QuestionnaireInput {
+  environmentId: string;
+  title: string;
+  description: string;
+  isDraft?: boolean;
+  isActive: boolean;
+  closesAt: string | null;
+  thankYouMessage: string;
+  sections: QuestionSectionInput[];
+  questions: QuestionInput[];
+  logoSettings?: QuestionnaireLogoSettings;
+  respondentAllowlist?: QuestionnaireRespondentAllowlist;
+  createdById: string;
+}
+
+export class QuestionnaireService {
+  async getById(id: string): Promise<Questionnaire | undefined> {
+    return repositories.questionnaires.findById(id);
+  }
+
+  async getBySlug(slug: string): Promise<Questionnaire | undefined> {
+    return repositories.questionnaires.findBySlug(slug);
+  }
+
+  async getByEnvironment(environmentId: string): Promise<Questionnaire[]> {
+    return repositories.questionnaires.findByEnvironment(environmentId);
+  }
+
+  async create(input: QuestionnaireInput): Promise<Questionnaire> {
+    const isDraft = input.isDraft ?? false;
+    if (isDraft) {
+      if (!input.title?.trim()) {
+        throw new Error("נא להזין כותרת לשמירת הטיוטה");
+      }
+    } else {
+      this.validatePublishInput(input);
+    }
+
+    const now = new Date().toISOString();
+    let slug = generateSlug();
+    while (await repositories.questionnaires.findBySlug(slug)) {
+      slug = generateSlug();
+    }
+
+    const sections = this.buildSections(input.sections);
+    const sectionIdMap = this.buildSectionIdMap(input.sections, sections);
+
+    const questionnaire: Questionnaire = {
+      id: uuidv4(),
+      environmentId: input.environmentId,
+      title: input.title.trim(),
+      description: input.description,
+      slug,
+      isDraft,
+      isActive: isDraft ? false : input.isActive,
+      closesAt: input.closesAt,
+      thankYouMessage: input.thankYouMessage || DEFAULT_THANK_YOU_MESSAGE,
+      sections,
+      questions: this.buildQuestions(input.questions, sectionIdMap),
+      logoSettings: input.logoSettings ?? emptyLogoSettings(),
+      respondentAllowlist: input.respondentAllowlist ?? emptyRespondentAllowlist(),
+      createdById: input.createdById,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await repositories.questionnaires.save(questionnaire);
+    return questionnaire;
+  }
+
+  async update(
+    id: string,
+    input: Partial<QuestionnaireInput>
+  ): Promise<Questionnaire> {
+    const existing = await repositories.questionnaires.findById(id);
+    if (!existing) throw new Error("שאלון לא נמצא");
+
+    const nextIsDraft =
+      input.isDraft !== undefined ? input.isDraft : existing.isDraft;
+    const publishingDraft = existing.isDraft && nextIsDraft === false;
+
+    if (publishingDraft && input.sections && input.questions) {
+      this.validatePublishInput({
+        environmentId: existing.environmentId,
+        title: input.title ?? existing.title,
+        description: input.description ?? existing.description,
+        isActive: input.isActive ?? existing.isActive,
+        closesAt:
+          input.closesAt !== undefined ? input.closesAt : existing.closesAt,
+        thankYouMessage: input.thankYouMessage ?? existing.thankYouMessage,
+        sections: input.sections,
+        questions: input.questions,
+        createdById: existing.createdById,
+      });
+    } else if (nextIsDraft && input.title !== undefined && !input.title.trim()) {
+      throw new Error("נא להזין כותרת לשמירת הטיוטה");
+    }
+
+    const sections = input.sections
+      ? this.buildSections(input.sections)
+      : existing.sections;
+    const sectionIdMap = input.sections
+      ? this.buildSectionIdMap(input.sections, sections)
+      : undefined;
+
+    const updated: Questionnaire = {
+      ...existing,
+      title: (input.title ?? existing.title).trim(),
+      description: input.description ?? existing.description,
+      isDraft: nextIsDraft,
+      isActive: nextIsDraft
+        ? false
+        : input.isActive !== undefined
+          ? input.isActive
+          : existing.isActive,
+      closesAt: input.closesAt !== undefined ? input.closesAt : existing.closesAt,
+      thankYouMessage: input.thankYouMessage ?? existing.thankYouMessage,
+      sections,
+      questions: input.questions
+        ? this.buildQuestions(input.questions, sectionIdMap ?? new Map())
+        : existing.questions,
+      logoSettings: input.logoSettings ?? existing.logoSettings,
+      respondentAllowlist:
+        input.respondentAllowlist ?? existing.respondentAllowlist,
+      updatedAt: new Date().toISOString(),
+    };
+    await repositories.questionnaires.save(updated);
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    await repositories.questionnaires.delete(id);
+  }
+
+  isAvailable(questionnaire: Questionnaire): {
+    available: boolean;
+    reason?: string;
+  } {
+    if (questionnaire.isDraft) {
+      return { available: false, reason: "השאלון אינו זמין כרגע" };
+    }
+    if (!questionnaire.isActive) {
+      return { available: false, reason: "השאלון אינו פעיל כרגע" };
+    }
+    if (questionnaire.closesAt) {
+      const closes = new Date(questionnaire.closesAt);
+      if (new Date() > closes) {
+        return { available: false, reason: "מועד מענה לשאלון הסתיים" };
+      }
+    }
+    return { available: true };
+  }
+
+  getPublicUrl(slug: string): string {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    return `${base}/q/${slug}`;
+  }
+
+  private validatePublishInput(input: QuestionnaireInput): void {
+    if (!input.title?.trim()) {
+      throw new Error("נא להזין כותרת לשאלון");
+    }
+    if (input.sections.some((s) => !s.title.trim())) {
+      throw new Error("לכל הפרקים נדרשת כותרת");
+    }
+    if (input.questions.some((q) => !q.title.trim())) {
+      throw new Error("לכל השאלות נדרשת כותרת");
+    }
+  }
+
+  private buildSectionIdMap(
+    inputs: QuestionSectionInput[],
+    built: QuestionSection[]
+  ): Map<string, string> {
+    const map = new Map<string, string>();
+    inputs.forEach((input, index) => {
+      if (input.id) map.set(input.id, built[index].id);
+    });
+    return map;
+  }
+
+  private buildSections(inputs: QuestionSectionInput[]): QuestionSection[] {
+    return inputs.map((s, index) => {
+      const type = s.type ?? "REGULAR";
+      const min = s.minRating ?? 1;
+      const max = s.maxRating ?? 5;
+      return {
+        id: s.id ?? uuidv4(),
+        title: s.title,
+        description: s.description?.trim() ?? "",
+        order: index,
+        type,
+        ...(type === "RATING"
+          ? {
+              minRating: min,
+              maxRating: max,
+              ratingLabels: normalizeRatingLabels(min, max, s.ratingLabels),
+            }
+          : {}),
+      };
+    });
+  }
+
+  private buildQuestions(
+    inputs: QuestionInput[],
+    sectionIdMap: Map<string, string>
+  ): Question[] {
+    return inputs.map((q, index) => ({
+      id: uuidv4(),
+      type: q.type,
+      title: q.title,
+      required: q.required,
+      order: index,
+      sectionId: sectionIdMap.get(q.sectionId) ?? q.sectionId,
+      allowMultiple: q.type === "MULTIPLE_CHOICE" ? (q.allowMultiple ?? false) : undefined,
+      options: q.options?.map((o) => ({
+        id: uuidv4(),
+        label: o.label,
+        allowFreeText: o.allowFreeText ?? false,
+      })),
+      followUp: q.followUp?.label?.trim()
+        ? { label: q.followUp.label.trim(), required: q.followUp.required }
+        : undefined,
+      minRating: q.type === "RATING" ? (q.minRating ?? 1) : undefined,
+      maxRating: q.type === "RATING" ? (q.maxRating ?? 5) : undefined,
+      ratingLabels:
+        q.type === "RATING" && q.ratingLabels?.length
+          ? normalizeRatingLabels(
+              q.minRating ?? 1,
+              q.maxRating ?? 5,
+              q.ratingLabels
+            ).filter((l) => l.label.trim())
+          : undefined,
+    }));
+  }
+}
+
+export const questionnaireService = new QuestionnaireService();

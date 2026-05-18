@@ -1,0 +1,560 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Download, Send } from "lucide-react";
+import type { Question, QuestionSection, SubmissionAnswer } from "@/lib/domain/types";
+import { isValidIsraeliId, normalizeIsraeliId } from "@/lib/validators/israeli-id";
+import {
+  isValidIsraeliPhone,
+  normalizePhone,
+} from "@/lib/validators/phone";
+import { exportSubmissionPdf } from "@/lib/pdf/export-submission";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
+import { SectionCard } from "@/components/ui/section-card";
+import { PublicFollowUpField } from "@/components/questionnaire/question-follow-up-fields";
+import {
+  PublicRatingButtons,
+  PublicRatingSectionMatrix,
+} from "@/components/questionnaire/rating-scale-fields";
+import { cn } from "@/lib/utils";
+import { UserRound } from "lucide-react";
+import type { BrandLogo, LogoSize } from "@/lib/domain/types";
+import { QuestionnaireLogoBar } from "@/components/branding/questionnaire-logo-bar";
+
+interface PublicQuestionnaire {
+  id: string;
+  title: string;
+  description: string;
+  sections: QuestionSection[];
+  questions: Question[];
+  thankYouMessage: string;
+  logos: BrandLogo[];
+  logoSize: LogoSize;
+  respondentAllowlistEnabled: boolean;
+}
+
+type FormBlock = {
+  section: QuestionSection | null;
+  questions: Question[];
+};
+
+function getFormBlocks(questionnaire: PublicQuestionnaire): FormBlock[] {
+  const sortedQuestions = [...questionnaire.questions].sort(
+    (a, b) => a.order - b.order
+  );
+  const sections = [...(questionnaire.sections ?? [])].sort(
+    (a, b) => a.order - b.order
+  );
+  if (sections.length === 0) {
+    return [{ section: null, questions: sortedQuestions }];
+  }
+  const blocks: FormBlock[] = sections.map((section) => ({
+    section,
+    questions: sortedQuestions.filter((q) => q.sectionId === section.id),
+  }));
+  const orphan = sortedQuestions.filter(
+    (q) => !q.sectionId || !sections.some((s) => s.id === q.sectionId)
+  );
+  if (orphan.length > 0) {
+    blocks.push({ section: null, questions: orphan });
+  }
+  return blocks;
+}
+
+export function PublicQuestionnaireForm({ slug }: { slug: string }) {
+  const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState(false);
+  const [unavailableReason, setUnavailableReason] = useState("");
+  const [questionnaire, setQuestionnaire] = useState<PublicQuestionnaire | null>(
+    null
+  );
+  const [step, setStep] = useState<"identify" | "form" | "done">("identify");
+  const [nationalId, setNationalId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [answers, setAnswers] = useState<Record<string, SubmissionAnswer["value"]>>(
+    {}
+  );
+  const [optionTexts, setOptionTexts] = useState<
+    Record<string, Record<string, string>>
+  >({});
+  const [followUpTexts, setFollowUpTexts] = useState<Record<string, string>>(
+    {}
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState("");
+  const [accessDenied, setAccessDenied] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [thankYou, setThankYou] = useState("");
+  const [lastSubmission, setLastSubmission] = useState<{
+    answers: SubmissionAnswer[];
+    nationalId: string;
+    phone: string;
+    submittedAt: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/public/questionnaires/${slug}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setQuestionnaire(data.questionnaire);
+        setAvailable(data.available);
+        setUnavailableReason(data.unavailableReason ?? "");
+        setLoading(false);
+      });
+  }, [slug]);
+
+  const validateIdentity = () => {
+    const errs: Record<string, string> = {};
+    if (!isValidIsraeliId(nationalId)) {
+      errs.nationalId = "מספר תעודת זהות לא תקין";
+    }
+    if (!isValidIsraeliPhone(phone)) {
+      errs.phone = "מספר טלפון לא תקין (05X-XXXXXXX)";
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const proceedToForm = async () => {
+    if (!validateIdentity() || !questionnaire) return;
+    setAccessDenied("");
+    if (!questionnaire.respondentAllowlistEnabled) {
+      setStep("form");
+      return;
+    }
+    setVerifying(true);
+    const res = await fetch(`/api/public/questionnaires/${slug}/verify-respondent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nationalId, phone }),
+    });
+    const data = await res.json();
+    setVerifying(false);
+    if (!res.ok) {
+      setAccessDenied(data.error ?? "אין לך הרשאה לענות על שאלון זה");
+      return;
+    }
+    setStep("form");
+  };
+
+  const validateForm = () => {
+    if (!questionnaire) return false;
+    const errs: Record<string, string> = {};
+    for (const q of questionnaire.questions) {
+      const val = answers[q.id];
+      if (q.required) {
+        if (val === undefined || val === "" || (Array.isArray(val) && !val.length)) {
+          errs[q.id] = "שדה חובה";
+        }
+      }
+      if (q.type === "MULTIPLE_CHOICE") {
+        const selected = Array.isArray(val) ? val : val ? [String(val)] : [];
+        for (const optionId of selected) {
+          const option = q.options?.find((o) => o.id === optionId);
+          if (option?.allowFreeText && !optionTexts[q.id]?.[optionId]?.trim()) {
+            errs[`${q.id}:${optionId}`] = "נא למלא השלמה";
+          }
+        }
+      }
+      if (q.followUp?.required && !followUpTexts[q.id]?.trim()) {
+        errs[`${q.id}:followUp`] = "שדה חובה";
+      }
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const setAnswer = (questionId: string, value: SubmissionAnswer["value"]) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
+  };
+
+  const toggleMulti = (questionId: string, optionId: string) => {
+    const current = (answers[questionId] as string[]) ?? [];
+    const next = current.includes(optionId)
+      ? current.filter((id) => id !== optionId)
+      : [...current, optionId];
+    setAnswer(questionId, next);
+  };
+
+  const setOptionText = (
+    question: Question,
+    optionId: string,
+    text: string
+  ) => {
+    setOptionTexts((prev) => ({
+      ...prev,
+      [question.id]: { ...prev[question.id], [optionId]: text },
+    }));
+    if (!question.allowMultiple && text.trim()) {
+      setAnswer(question.id, optionId);
+    }
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`${question.id}:${optionId}`];
+      return next;
+    });
+  };
+
+  const selectChoice = (question: Question, optionId: string) => {
+    if (question.allowMultiple) {
+      toggleMulti(question.id, optionId);
+      return;
+    }
+    setAnswer(question.id, optionId);
+  };
+
+  const isChoiceSelected = (question: Question, optionId: string) => {
+    const val = answers[question.id];
+    if (question.allowMultiple) {
+      return ((val as string[]) ?? []).includes(optionId);
+    }
+    return val === optionId;
+  };
+
+  const submit = async () => {
+    if (!validateForm() || !questionnaire) return;
+    setSubmitError("");
+    const payload: SubmissionAnswer[] = Object.entries(answers).map(
+      ([questionId, value]) => {
+        const texts = optionTexts[questionId];
+        const followUpText = followUpTexts[questionId];
+        return {
+          questionId,
+          value,
+          ...(texts && Object.keys(texts).length > 0
+            ? { optionTexts: texts }
+            : {}),
+          ...(followUpText?.trim() ? { followUpText: followUpText.trim() } : {}),
+        };
+      }
+    );
+
+    const res = await fetch("/api/public/submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        nationalId: normalizeIsraeliId(nationalId),
+        phone: normalizePhone(phone),
+        answers: payload,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setSubmitError(data.error ?? "שגיאה בשליחה");
+      return;
+    }
+
+    setThankYou(data.thankYouMessage);
+    setLastSubmission({
+      answers: payload,
+      nationalId: normalizeIsraeliId(nationalId),
+      phone: normalizePhone(phone),
+      submittedAt: new Date().toISOString(),
+    });
+    setStep("done");
+  };
+
+  const downloadPdf = () => {
+    if (!questionnaire || !lastSubmission) return;
+    exportSubmissionPdf(questionnaire.title, questionnaire.questions, {
+      id: "local",
+      questionnaireId: questionnaire.id,
+      nationalId: lastSubmission.nationalId,
+      phone: lastSubmission.phone,
+      answers: lastSubmission.answers,
+      submittedAt: lastSubmission.submittedAt,
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-full flex-1 items-center justify-center">
+        <p className="text-slate-500">טוען שאלון...</p>
+      </div>
+    );
+  }
+
+  if (!available || !questionnaire) {
+    return (
+      <div className="flex min-h-full flex-1 items-center justify-center bg-slate-50 p-6">
+        <Card className="max-w-md">
+          <CardContent className="py-10 text-center">
+            <p className="text-lg font-medium text-foreground">
+              {unavailableReason || "השאלון אינו זמין כרגע"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "done") {
+    return (
+      <div className="flex min-h-full flex-1 items-center justify-center bg-gradient-to-br from-teal-50 to-white p-6">
+        <Card className="max-w-lg shadow-lg shadow-primary/10">
+          <CardContent className="py-10 text-center">
+            <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-primary/10 text-3xl text-primary">
+              ✓
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">תודה!</h1>
+            <p className="mt-4 leading-relaxed text-muted-foreground">{thankYou}</p>
+            <Button className="mt-8 gap-2" variant="outline" onClick={downloadPdf}>
+              <Download className="size-4" />
+              הורדת עותק PDF
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-full flex-1 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 py-10 px-4">
+      <div className="mx-auto w-full max-w-6xl px-2">
+        <header className="mb-8 text-center">
+          <QuestionnaireLogoBar
+            logos={questionnaire.logos}
+            size={questionnaire.logoSize}
+            className="mb-6"
+          />
+          <h1 className="text-3xl font-bold text-slate-900">{questionnaire.title}</h1>
+          {questionnaire.description && (
+            <p className="mt-2 text-slate-500">{questionnaire.description}</p>
+          )}
+        </header>
+
+        {step === "identify" ? (
+          <SectionCard
+            title="זיהוי לפני מילוי השאלון"
+            description="נא להזין פרטים לזיהוי לפני תחילת המילוי"
+            icon={UserRound}
+          >
+            <div className="space-y-5">
+              <FormField label="תעודת זהות" htmlFor="tz">
+                <Input
+                  id="tz"
+                  value={nationalId}
+                  onChange={(e) => setNationalId(e.target.value)}
+                  placeholder="9 ספרות"
+                  inputMode="numeric"
+                />
+                {errors.nationalId && (
+                  <p className="text-sm text-destructive">{errors.nationalId}</p>
+                )}
+              </FormField>
+              <FormField label="מספר טלפון" htmlFor="phone">
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="05X-XXXXXXX"
+                  inputMode="tel"
+                />
+                {errors.phone && (
+                  <p className="text-sm text-destructive">{errors.phone}</p>
+                )}
+              </FormField>
+              {accessDenied && (
+                <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {accessDenied}
+                </p>
+              )}
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={verifying}
+                onClick={() => proceedToForm()}
+              >
+                {verifying ? "בודק הרשאה..." : "המשך לשאלון"}
+              </Button>
+            </div>
+          </SectionCard>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+            className="space-y-8"
+          >
+            {getFormBlocks(questionnaire).map((block, blockIndex) => {
+              const questionsBefore = getFormBlocks(questionnaire)
+                .slice(0, blockIndex)
+                .reduce((sum, b) => sum + b.questions.length, 0);
+
+              return (
+                <div
+                  key={block.section?.id ?? `block-${blockIndex}`}
+                  className="overflow-hidden rounded-2xl border-2 border-primary/15 bg-card shadow-sm"
+                >
+                  {block.section && (
+                    <div className="border-b border-primary/10 bg-primary/[0.06] px-6 py-4">
+                      <h2 className="text-lg font-semibold text-foreground">
+                        {block.section.title}
+                      </h2>
+                      {block.section.description && (
+                        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                          {block.section.description}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="space-y-4 p-5 sm:p-6">
+                  {block.section?.type === "RATING" ? (
+                    <PublicRatingSectionMatrix
+                      section={block.section}
+                      questions={block.questions}
+                      answers={answers as Record<string, number | undefined>}
+                      errors={errors}
+                      onAnswer={(questionId, value) => setAnswer(questionId, value)}
+                    />
+                  ) : (
+                  block.questions.map((q, localIndex) => {
+                    const displayIndex = questionsBefore + localIndex + 1;
+                    return (
+                <Card key={q.id} className="border-border/50 shadow-none">
+                  <CardContent>
+                  <p className="mb-4 font-medium text-foreground">
+                    {displayIndex}. {q.title}
+                    {q.required && <span className="text-destructive"> *</span>}
+                  </p>
+
+                  {q.type === "YES_NO" && (
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        variant={
+                          answers[q.id] === true ? "default" : "outline"
+                        }
+                        onClick={() => setAnswer(q.id, true)}
+                      >
+                        כן
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={
+                          answers[q.id] === false ? "default" : "outline"
+                        }
+                        onClick={() => setAnswer(q.id, false)}
+                      >
+                        לא
+                      </Button>
+                    </div>
+                  )}
+
+                  {q.type === "MULTIPLE_CHOICE" && (
+                    <ul className="space-y-2">
+                      {q.options?.map((opt) => (
+                        <li key={opt.id}>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+                              isChoiceSelected(q, opt.id)
+                                ? "border-primary/35 bg-primary/5"
+                                : "border-border/60 bg-muted/15 hover:bg-muted/30"
+                            )}
+                          >
+                            <input
+                              type={q.allowMultiple ? "checkbox" : "radio"}
+                              name={q.allowMultiple ? undefined : q.id}
+                              checked={isChoiceSelected(q, opt.id)}
+                              onChange={() => selectChoice(q, opt.id)}
+                              className="size-4 shrink-0 accent-primary"
+                            />
+                            {opt.allowFreeText ? (
+                              <span className="flex min-w-0 flex-1 items-baseline gap-1">
+                                <span className="shrink-0 text-sm font-medium">
+                                  {opt.label || "אחר"}:
+                                </span>
+                                <input
+                                  type="text"
+                                  value={optionTexts[q.id]?.[opt.id] ?? ""}
+                                  onChange={(e) =>
+                                    setOptionText(q, opt.id, e.target.value)
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="min-w-0 flex-1 border-0 border-b border-muted-foreground/30 bg-transparent px-0 py-0.5 text-sm outline-none transition-colors focus:border-primary"
+                                  placeholder="השלמה..."
+                                />
+                              </span>
+                            ) : (
+                              <span className="text-sm">{opt.label}</span>
+                            )}
+                          </label>
+                          {errors[`${q.id}:${opt.id}`] && (
+                            <p className="mt-1 pr-7 text-sm text-destructive">
+                              {errors[`${q.id}:${opt.id}`]}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {q.type === "TEXT" && (
+                    <Textarea
+                      value={(answers[q.id] as string) ?? ""}
+                      onChange={(e) => setAnswer(q.id, e.target.value)}
+                      rows={4}
+                    />
+                  )}
+
+                  {q.type === "RATING" && (
+                    <PublicRatingButtons
+                      minRating={q.minRating ?? 1}
+                      maxRating={q.maxRating ?? 5}
+                      ratingLabels={q.ratingLabels}
+                      value={answers[q.id] as number | undefined}
+                      onChange={(n) => setAnswer(q.id, n)}
+                    />
+                  )}
+
+                  {q.followUp && (
+                    <PublicFollowUpField
+                      label={q.followUp.label}
+                      required={q.followUp.required}
+                      value={followUpTexts[q.id] ?? ""}
+                      error={errors[`${q.id}:followUp`]}
+                      onChange={(text) =>
+                        setFollowUpTexts((prev) => ({ ...prev, [q.id]: text }))
+                      }
+                    />
+                  )}
+
+                  {errors[q.id] && (
+                    <p className="mt-2 text-sm text-destructive">{errors[q.id]}</p>
+                  )}
+                  </CardContent>
+                </Card>
+                    );
+                  })
+                  )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {submitError && (
+              <p className="text-center text-sm text-rose-600">{submitError}</p>
+            )}
+
+            <Button type="submit" size="lg" className="w-full gap-2">
+              <Send className="h-4 w-4" />
+              שליחת השאלון
+            </Button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
