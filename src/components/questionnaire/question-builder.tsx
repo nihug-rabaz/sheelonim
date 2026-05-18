@@ -139,7 +139,7 @@ export function QuestionBuilder({
   const [sections, setSections] = useState<QuestionSectionInput[]>(seed.sections);
   const [questions, setQuestions] = useState<QuestionInput[]>(seed.questions);
   const [logoSettings, setLogoSettings] = useState<QuestionnaireLogoSettings>(
-    emptyLogoSettings()
+    seed.logoSettings ?? emptyLogoSettings()
   );
   const [error, setError] = useState("");
 
