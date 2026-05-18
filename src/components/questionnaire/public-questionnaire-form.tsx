@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Download, Send } from "lucide-react";
@@ -21,6 +21,13 @@ import {
   PublicRatingSectionMatrix,
 } from "@/components/questionnaire/rating-scale-fields";
 import { isFollowUpRequired, isFollowUpVisible } from "@/lib/follow-up-logic";
+import { getYesNoBranchFields } from "@/lib/yes-no-logic";
+import {
+  countAnswerableQuestions,
+  isAnswerableQuestion,
+  isLabelQuestion,
+} from "@/lib/question-utils";
+import { PublicYesNoBranchFields } from "@/components/questionnaire/yes-no-branch-fields";
 import { cn } from "@/lib/utils";
 import { UserRound } from "lucide-react";
 import type { BrandLogo, LogoSize } from "@/lib/domain/types";
@@ -85,6 +92,9 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   const [followUpTexts, setFollowUpTexts] = useState<Record<string, string>>(
     {}
   );
+  const [yesNoFieldTexts, setYesNoFieldTexts] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
   const [accessDenied, setAccessDenied] = useState("");
@@ -110,7 +120,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   const validateIdentity = () => {
     const errs: Record<string, string> = {};
     if (!isValidIsraeliPhone(phone)) {
-      errs.phone = "מספר טלפון לא תקין (05X-XXXXXXX)";
+      errs.phone = "×ž×¡×¤×¨ ×˜×œ×¤×•×Ÿ ×œ× ×ª×§×™×Ÿ (05X-XXXXXXX)";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -132,7 +142,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     const data = await res.json();
     setVerifying(false);
     if (!res.ok) {
-      setAccessDenied(data.error ?? "אין לך הרשאה לענות על שאלון זה");
+      setAccessDenied(data.error ?? "××™×Ÿ ×œ×š ×”×¨×©××” ×œ×¢× ×•×ª ×¢×œ ×©××œ×•×Ÿ ×–×”");
       return;
     }
     setStep("form");
@@ -142,10 +152,11 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     if (!questionnaire) return false;
     const errs: Record<string, string> = {};
     for (const q of questionnaire.questions) {
+      if (!isAnswerableQuestion(q)) continue;
       const val = answers[q.id];
       if (q.required) {
         if (val === undefined || val === "" || (Array.isArray(val) && !val.length)) {
-          errs[q.id] = "שדה חובה";
+          errs[q.id] = "×©×“×” ×—×•×‘×”";
         }
       }
       if (q.type === "MULTIPLE_CHOICE") {
@@ -153,7 +164,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         for (const optionId of selected) {
           const option = q.options?.find((o) => o.id === optionId);
           if (option?.allowFreeText && !optionTexts[q.id]?.[optionId]?.trim()) {
-            errs[`${q.id}:${optionId}`] = "נא למלא השלמה";
+            errs[`${q.id}:${optionId}`] = "× × ×œ×ž×œ× ×”×©×œ×ž×”";
           }
         }
       }
@@ -161,7 +172,15 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         isFollowUpRequired(q.followUp, q, val) &&
         !followUpTexts[q.id]?.trim()
       ) {
-        errs[`${q.id}:followUp`] = "שדה חובה";
+        errs[`${q.id}:followUp`] = "×©×“×” ×—×•×‘×”";
+      }
+      if (q.type === "YES_NO" && q.yesNoConfig) {
+        const branchFields = getYesNoBranchFields(q.yesNoConfig, val);
+        for (const field of branchFields) {
+          if (field.required && !yesNoFieldTexts[q.id]?.[field.id]?.trim()) {
+            errs[`${q.id}:yn:${field.id}`] = "×©×“×” ×—×•×‘×”";
+          }
+        }
       }
     }
     setErrors(errs);
@@ -184,6 +203,30 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
       setFollowUpTexts((prev) => {
         const next = { ...prev };
         delete next[questionId];
+        return next;
+      });
+    }
+    if (question?.type === "YES_NO") {
+      const activeIds = new Set(
+        getYesNoBranchFields(question.yesNoConfig, value).map((f) => f.id)
+      );
+      setYesNoFieldTexts((prev) => {
+        const current = prev[questionId] ?? {};
+        const nextFields = Object.fromEntries(
+          Object.entries(current).filter(([id]) => activeIds.has(id))
+        );
+        if (Object.keys(nextFields).length === 0) {
+          const next = { ...prev };
+          delete next[questionId];
+          return next;
+        }
+        return { ...prev, [questionId]: nextFields };
+      });
+      setErrors((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key.startsWith(`${questionId}:yn:`)) delete next[key];
+        }
         return next;
       });
     }
@@ -235,10 +278,20 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   const submit = async () => {
     if (!validateForm() || !questionnaire) return;
     setSubmitError("");
-    const payload: SubmissionAnswer[] = Object.entries(answers).map(
-      ([questionId, value]) => {
+    const payload: SubmissionAnswer[] = Object.entries(answers)
+      .filter(([questionId]) => {
+        const q = questionnaire.questions.find((item) => item.id === questionId);
+        return q && isAnswerableQuestion(q);
+      })
+      .map(([questionId, value]) => {
         const texts = optionTexts[questionId];
         const followUpText = followUpTexts[questionId];
+        const branchTexts = yesNoFieldTexts[questionId];
+        const trimmedBranch =
+          branchTexts &&
+          Object.fromEntries(
+            Object.entries(branchTexts).filter(([, t]) => t.trim())
+          );
         return {
           questionId,
           value,
@@ -246,6 +299,9 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
             ? { optionTexts: texts }
             : {}),
           ...(followUpText?.trim() ? { followUpText: followUpText.trim() } : {}),
+          ...(trimmedBranch && Object.keys(trimmedBranch).length > 0
+            ? { branchFieldTexts: trimmedBranch }
+            : {}),
         };
       }
     );
@@ -261,7 +317,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setSubmitError(data.error ?? "שגיאה בשליחה");
+      setSubmitError(data.error ?? "×©×’×™××” ×‘×©×œ×™×—×”");
       return;
     }
 
@@ -289,7 +345,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   if (loading) {
     return (
       <div className="flex min-h-full flex-1 items-center justify-center">
-        <p className="text-slate-500">טוען שאלון...</p>
+        <p className="text-slate-500">×˜×•×¢×Ÿ ×©××œ×•×Ÿ...</p>
       </div>
     );
   }
@@ -300,7 +356,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         <Card className="max-w-md">
           <CardContent className="py-10 text-center">
             <p className="text-lg font-medium text-foreground">
-              {unavailableReason || "השאלון אינו זמין כרגע"}
+              {unavailableReason || "×”×©××œ×•×Ÿ ××™× ×• ×–×ž×™×Ÿ ×›×¨×’×¢"}
             </p>
           </CardContent>
         </Card>
@@ -314,14 +370,14 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         <Card className="max-w-lg shadow-lg shadow-primary/10">
           <CardContent className="py-10 text-center">
             <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-primary/10 text-3xl text-primary">
-              ✓
+              âœ“
             </div>
-            <h1 className="text-2xl font-bold text-foreground">תודה!</h1>
+            <h1 className="text-2xl font-bold text-foreground">×ª×•×“×”!</h1>
             <p className="mt-4 leading-relaxed text-muted-foreground">{thankYou}</p>
             {questionnaire.allowRespondentPdfDownload && (
               <Button className="mt-8 gap-2" variant="outline" onClick={downloadPdf}>
                 <Download className="size-4" />
-                הורדת עותק PDF
+                ×”×•×¨×“×ª ×¢×•×ª×§ PDF
               </Button>
             )}
           </CardContent>
@@ -347,12 +403,12 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
 
         {step === "identify" ? (
           <SectionCard
-            title="זיהוי לפני מילוי השאלון"
-            description="נא להזין מספר טלפון לזיהוי לפני תחילת המילוי"
+            title="×–×™×”×•×™ ×œ×¤× ×™ ×ž×™×œ×•×™ ×”×©××œ×•×Ÿ"
+            description="× × ×œ×”×–×™×Ÿ ×ž×¡×¤×¨ ×˜×œ×¤×•×Ÿ ×œ×–×™×”×•×™ ×œ×¤× ×™ ×ª×—×™×œ×ª ×”×ž×™×œ×•×™"
             icon={UserRound}
           >
             <div className="space-y-5">
-              <FormField label="מספר טלפון" htmlFor="phone">
+              <FormField label="×ž×¡×¤×¨ ×˜×œ×¤×•×Ÿ" htmlFor="phone">
                 <Input
                   id="phone"
                   value={phone}
@@ -381,7 +437,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                 disabled={verifying}
                 onClick={() => proceedToForm()}
               >
-                {verifying ? "בודק הרשאה..." : "המשך לשאלון"}
+                {verifying ? "×‘×•×“×§ ×”×¨×©××”..." : "×”×ž×©×š ×œ×©××œ×•×Ÿ"}
               </Button>
             </div>
           </SectionCard>
@@ -396,7 +452,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
             {getFormBlocks(questionnaire).map((block, blockIndex) => {
               const questionsBefore = getFormBlocks(questionnaire)
                 .slice(0, blockIndex)
-                .reduce((sum, b) => sum + b.questions.length, 0);
+                .reduce((sum, b) => sum + countAnswerableQuestions(b.questions), 0);
 
               return (
                 <div
@@ -419,14 +475,27 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                   {block.section?.type === "RATING" ? (
                     <PublicRatingSectionMatrix
                       section={block.section}
-                      questions={block.questions}
+                      questions={block.questions.filter(isAnswerableQuestion)}
                       answers={answers as Record<string, number | undefined>}
                       errors={errors}
                       onAnswer={(questionId, value) => setAnswer(questionId, value)}
                     />
                   ) : (
-                  block.questions.map((q, localIndex) => {
-                    const displayIndex = questionsBefore + localIndex + 1;
+                  (() => {
+                    let answerableInBlock = 0;
+                    return block.questions.map((q) => {
+                    if (isLabelQuestion(q)) {
+                      return (
+                        <div
+                          key={q.id}
+                          className="rounded-xl border border-dashed border-border/60 bg-muted/25 px-4 py-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground"
+                        >
+                          {q.title}
+                        </div>
+                      );
+                    }
+                    answerableInBlock += 1;
+                    const displayIndex = questionsBefore + answerableInBlock;
                     return (
                 <Card key={q.id} className="border-border/50 shadow-none">
                   <CardContent>
@@ -436,26 +505,48 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                   </p>
 
                   {q.type === "YES_NO" && (
-                    <div className="flex gap-3">
-                      <Button
-                        type="button"
-                        variant={
-                          answers[q.id] === true ? "default" : "outline"
-                        }
-                        onClick={() => setAnswer(q.id, true)}
-                      >
-                        כן
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={
-                          answers[q.id] === false ? "default" : "outline"
-                        }
-                        onClick={() => setAnswer(q.id, false)}
-                      >
-                        לא
-                      </Button>
-                    </div>
+                    <>
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant={
+                            answers[q.id] === true ? "default" : "outline"
+                          }
+                          onClick={() => setAnswer(q.id, true)}
+                        >
+                          ×›×Ÿ
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={
+                            answers[q.id] === false ? "default" : "outline"
+                          }
+                          onClick={() => setAnswer(q.id, false)}
+                        >
+                          ×œ×
+                        </Button>
+                      </div>
+                      <PublicYesNoBranchFields
+                        questionId={q.id}
+                        fields={getYesNoBranchFields(
+                          q.yesNoConfig,
+                          answers[q.id]
+                        )}
+                        texts={yesNoFieldTexts[q.id] ?? {}}
+                        errors={errors}
+                        onChange={(fieldId, text) => {
+                          setYesNoFieldTexts((prev) => ({
+                            ...prev,
+                            [q.id]: { ...prev[q.id], [fieldId]: text },
+                          }));
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next[`${q.id}:yn:${fieldId}`];
+                            return next;
+                          });
+                        }}
+                      />
+                    </>
                   )}
 
                   {q.type === "MULTIPLE_CHOICE" && (
@@ -483,7 +574,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                               />
                               <span className="text-sm leading-snug">
                                 {opt.allowFreeText
-                                  ? `${opt.label || "אחר"}:`
+                                  ? `${opt.label || "××—×¨"}:`
                                   : opt.label}
                               </span>
                             </span>
@@ -494,7 +585,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                                   setOptionText(q, opt.id, e.target.value)
                                 }
                                 onClick={(e) => e.stopPropagation()}
-                                placeholder="השלמה..."
+                                placeholder="×”×©×œ×ž×”..."
                                 className="w-full"
                               />
                             )}
@@ -550,7 +641,8 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                   </CardContent>
                 </Card>
                     );
-                  })
+                  });
+                  })()
                   )}
                   </div>
                 </div>
@@ -563,7 +655,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
 
             <Button type="submit" size="lg" className="w-full gap-2">
               <Send className="h-4 w-4" />
-              שליחת השאלון
+              ×©×œ×™×—×ª ×”×©××œ×•×Ÿ
             </Button>
           </form>
         )}

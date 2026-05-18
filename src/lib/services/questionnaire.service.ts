@@ -4,6 +4,7 @@ import { emptyRespondentAllowlist } from "@/lib/respondent-allowlist";
 import type {
   Question,
   QuestionFollowUp,
+  QuestionYesNoConfig,
   Questionnaire,
   QuestionnaireLogoSettings,
   QuestionnaireRespondentAllowlist,
@@ -15,6 +16,7 @@ import { normalizeRatingLabels } from "@/lib/rating-scale";
 import { DEFAULT_THANK_YOU_MESSAGE } from "@/lib/domain/types";
 import { repositories } from "@/lib/repositories";
 import { getPublicQuestionnaireUrl } from "@/lib/app-url";
+import { isAnswerableQuestion } from "@/lib/question-utils";
 import { generateSlug } from "@/lib/utils";
 
 export interface QuestionSectionInput {
@@ -36,6 +38,7 @@ export interface QuestionInput {
   allowMultiple?: boolean;
   options?: { id?: string; label: string; allowFreeText?: boolean }[];
   followUp?: QuestionFollowUp | null;
+  yesNoConfig?: QuestionYesNoConfig | null;
   minRating?: number;
   maxRating?: number;
   ratingLabels?: { value: number; label: string }[];
@@ -228,7 +231,7 @@ export class QuestionnaireService {
     if (questionnaire.sections.some((s) => !s.title.trim())) {
       throw new Error("לכל הפרקים נדרשת כותרת");
     }
-    if (questionnaire.questions.length === 0) {
+    if (!questionnaire.questions.some(isAnswerableQuestion)) {
       throw new Error("יש להוסיף לפחות שאלה אחת לפני פרסום");
     }
     if (questionnaire.questions.some((q) => !q.title.trim())) {
@@ -269,6 +272,31 @@ export class QuestionnaireService {
     });
   }
 
+  private buildYesNoConfig(
+    config?: QuestionYesNoConfig | null
+  ): QuestionYesNoConfig | undefined {
+    if (!config) return undefined;
+    const yesFields = config.yesFields
+      ?.filter((f) => f.label.trim())
+      .map((f) => ({
+        id: f.id ?? uuidv4(),
+        label: f.label.trim(),
+        required: f.required,
+      }));
+    const noFields = config.noFields
+      ?.filter((f) => f.label.trim())
+      .map((f) => ({
+        id: f.id ?? uuidv4(),
+        label: f.label.trim(),
+        required: f.required,
+      }));
+    if (!yesFields?.length && !noFields?.length) return undefined;
+    return {
+      ...(yesFields?.length ? { yesFields } : {}),
+      ...(noFields?.length ? { noFields } : {}),
+    };
+  }
+
   private buildQuestions(
     inputs: QuestionInput[],
     sectionIdMap: Map<string, string>
@@ -277,7 +305,7 @@ export class QuestionnaireService {
       id: q.id ?? uuidv4(),
       type: q.type,
       title: q.title,
-      required: q.required,
+      required: q.type === "LABEL" ? false : q.required,
       order: index,
       sectionId: sectionIdMap.get(q.sectionId) ?? q.sectionId,
       allowMultiple: q.type === "MULTIPLE_CHOICE" ? (q.allowMultiple ?? false) : undefined,
@@ -298,6 +326,8 @@ export class QuestionnaireService {
               : {}),
           }
         : undefined,
+      yesNoConfig:
+        q.type === "YES_NO" ? this.buildYesNoConfig(q.yesNoConfig) : undefined,
       minRating: q.type === "RATING" ? (q.minRating ?? 1) : undefined,
       maxRating: q.type === "RATING" ? (q.maxRating ?? 5) : undefined,
       ratingLabels:

@@ -5,6 +5,7 @@ export const QUESTION_TYPE_OPTIONS: { value: QuestionType; label: string }[] = [
   { value: "MULTIPLE_CHOICE", label: "אמריקאי" },
   { value: "TEXT", label: "שדה פתוח" },
   { value: "RATING", label: "דירוג" },
+  { value: "LABEL", label: "טקסט הצגה" },
 ];
 
 const LABELS = Object.fromEntries(

@@ -1,5 +1,6 @@
 import type { Question, Questionnaire, Submission } from "@/lib/domain/types";
 import { getRatingLabel } from "@/lib/rating-scale";
+import { isLabelQuestion } from "@/lib/question-utils";
 
 export interface ChartDatum {
   label: string;
@@ -20,9 +21,9 @@ export class AnalyticsService {
     questionnaire: Questionnaire,
     submissions: Submission[]
   ): QuestionAnalytics[] {
-    return questionnaire.questions.map((question) =>
-      this.analyzeQuestion(question, submissions)
-    );
+    return questionnaire.questions
+      .filter((q) => !isLabelQuestion(q))
+      .map((question) => this.analyzeQuestion(question, submissions));
   }
 
   private analyzeQuestion(

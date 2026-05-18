@@ -1,5 +1,7 @@
 import type { Question, SubmissionAnswer } from "@/lib/domain/types";
 import { formatRatingAnswer } from "@/lib/rating-scale";
+import { isLabelQuestion } from "@/lib/question-utils";
+import { getYesNoBranchFields } from "@/lib/yes-no-logic";
 
 function formatMainAnswer(
   question: Question,
@@ -33,14 +35,23 @@ export function formatQuestionAnswer(
   question: Question,
   answer: SubmissionAnswer | undefined
 ): string {
+  if (isLabelQuestion(question)) return "—";
   if (!answer) return "—";
-  const { value, optionTexts, followUpText } = answer;
+  const { value, optionTexts, followUpText, branchFieldTexts } = answer;
   if (value === undefined || value === null) return "—";
 
   const main = formatMainAnswer(question, value, optionTexts);
+  const parts = [main];
+
+  const branchFields = getYesNoBranchFields(question.yesNoConfig, value);
+  for (const field of branchFields) {
+    const text = branchFieldTexts?.[field.id]?.trim();
+    if (text) parts.push(`${field.label}: ${text}`);
+  }
+
   const follow = followUpText?.trim();
   if (follow && question.followUp?.label) {
-    return `${main} · ${question.followUp.label} ${follow}`;
+    parts.push(`${question.followUp.label} ${follow}`);
   }
-  return main;
+  return parts.join(" · ");
 }

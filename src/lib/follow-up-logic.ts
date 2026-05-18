@@ -1,5 +1,8 @@
 import type { Question, QuestionFollowUp, SubmissionAnswer } from "@/lib/domain/types";
 
+export const YES_NO_OPTION_YES = "__yes__";
+export const YES_NO_OPTION_NO = "__no__";
+
 export function getSelectedOptionIds(
   question: Question,
   value: SubmissionAnswer["value"] | undefined
@@ -7,6 +10,10 @@ export function getSelectedOptionIds(
   if (value === undefined || value === "") return [];
   if (question.type === "MULTIPLE_CHOICE") {
     return Array.isArray(value) ? value.map(String) : [String(value)];
+  }
+  if (question.type === "YES_NO") {
+    if (value === true) return [YES_NO_OPTION_YES];
+    if (value === false) return [YES_NO_OPTION_NO];
   }
   return [];
 }

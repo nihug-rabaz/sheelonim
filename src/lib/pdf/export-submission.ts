@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Question, Submission } from "@/lib/domain/types";
 import { formatQuestionAnswer } from "@/lib/format-question-answer";
+import { isAnswerableQuestion } from "@/lib/question-utils";
 import { formatPhoneDisplay } from "@/lib/validators/phone";
 
 export function exportSubmissionPdf(
@@ -32,6 +33,7 @@ export function exportSubmissionPdf(
   );
 
   const rows = questions
+    .filter(isAnswerableQuestion)
     .sort((a, b) => a.order - b.order)
     .map((q) => {
       const answer = submission.answers.find((a) => a.questionId === q.id);

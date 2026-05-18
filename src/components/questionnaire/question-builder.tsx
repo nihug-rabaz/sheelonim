@@ -30,6 +30,8 @@ import type {
 import type { QuestionBuilderInitialState } from "@/lib/map-questionnaire-to-builder";
 import { toast } from "sonner";
 import { BuilderFollowUpSettings } from "@/components/questionnaire/question-follow-up-fields";
+import { BuilderYesNoBranchFields } from "@/components/questionnaire/yes-no-branch-fields";
+import { YES_NO_OPTION_NO, YES_NO_OPTION_YES } from "@/lib/follow-up-logic";
 import { BuilderRatingScaleEditor } from "@/components/questionnaire/rating-scale-fields";
 
 function createSection(type: SectionType = "REGULAR"): QuestionSectionInput {
@@ -43,6 +45,15 @@ function createSection(type: SectionType = "REGULAR"): QuestionSectionInput {
     minRating: min,
     maxRating: max,
     ratingLabels: normalizeRatingLabels(min, max),
+  };
+}
+
+function createLabelBlock(sectionId: string): QuestionInput {
+  return {
+    type: "LABEL",
+    title: "",
+    required: false,
+    sectionId,
   };
 }
 
@@ -207,6 +218,10 @@ export function QuestionBuilder({
       ...prev,
       createQuestion(sectionId, section?.type ?? "REGULAR"),
     ]);
+  };
+
+  const addLabelBlock = (sectionId: string) => {
+    setQuestions((prev) => [...prev, createLabelBlock(sectionId)]);
   };
 
   const removeQuestion = (index: number) => {
@@ -493,63 +508,97 @@ export function QuestionBuilder({
                 {sectionQuestions.map(({ q: question, index }, localIndex) => {
                   const displayIndex = questionsBefore + localIndex + 1;
                   return (
-                    <Card key={index} className="relative">
-                      <CardContent className="space-y-4 pr-12">
-                        <div className="absolute left-6 top-6 text-muted-foreground/40">
-                          <GripVertical className="size-5" />
-                        </div>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 grid gap-4 sm:grid-cols-2">
+                    <Card key={index}>
+                      <CardContent className="space-y-4">
+                        <div className="flex gap-3">
+                          <div className="flex shrink-0 flex-col items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-9"
+                              onClick={() => removeQuestion(index)}
+                              disabled={sectionQuestions.length <= 1}
+                            >
+                              <Trash2 className="size-4 text-rose-500" />
+                            </Button>
+                            <div
+                              className="flex size-9 items-center justify-center text-muted-foreground/50"
+                              title="גרירה"
+                            >
+                              <GripVertical className="size-5" />
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <Label>סוג שאלה</Label>
                               <select
                                 value={question.type}
-                                onChange={(e) =>
-                                  updateQuestion(index, {
-                                    type: e.target.value as QuestionType,
-                                  })
-                                }
+                                onChange={(e) => {
+                                  const type = e.target.value as QuestionType;
+                                  if (type === "LABEL") {
+                                    updateQuestion(index, {
+                                      type,
+                                      required: false,
+                                      followUp: null,
+                                      yesNoConfig: null,
+                                    });
+                                  } else {
+                                    updateQuestion(index, { type });
+                                  }
+                                }}
                                 className="mt-2 flex h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm"
                               >
-                                {QUESTION_TYPE_OPTIONS.map((t) => (
+                                {(isRatingSection
+                                  ? QUESTION_TYPE_OPTIONS.filter((t) => t.value === "RATING")
+                                  : QUESTION_TYPE_OPTIONS.filter((t) => t.value !== "RATING")
+                                ).map((t) => (
                                   <option key={t.value} value={t.value}>
                                     {t.label}
                                   </option>
                                 ))}
                               </select>
                             </div>
-                            <div className="flex items-end gap-3 pb-1">
-                              <Switch
-                                checked={question.required}
-                                onCheckedChange={(v) =>
-                                  updateQuestion(index, { required: v })
-                                }
-                              />
-                              <Label>שאלת חובה</Label>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeQuestion(index)}
-                            disabled={sectionQuestions.length <= 1}
-                          >
-                            <Trash2 className="h-4 w-4 text-rose-500" />
-                          </Button>
+                            {question.type !== "LABEL" && (
+                              <div className="flex items-end gap-3 pb-1">
+                                <Switch
+                                  checked={question.required}
+                                  onCheckedChange={(v) =>
+                                    updateQuestion(index, { required: v })
+                                  }
+                                />
+                                <Label>שאלת חובה</Label>
+                              </div>
+                            )}
                         </div>
 
-                        <div>
-                          <Label>נוסח השאלה</Label>
-                          <Input
-                            value={question.title}
-                            onChange={(e) =>
-                              updateQuestion(index, { title: e.target.value })
-                            }
-                            className="mt-2"
-                            placeholder={`שאלה ${displayIndex}`}
-                          />
-                        </div>
+                        {question.type === "LABEL" ? (
+                          <div>
+                            <Label>טקסט להצגה</Label>
+                            <Textarea
+                              value={question.title}
+                              onChange={(e) =>
+                                updateQuestion(index, { title: e.target.value })
+                              }
+                              className="mt-2"
+                              rows={3}
+                              placeholder="טקסט שיופיע בטופס בין השאלות, ללא שדה מענה"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <Label>נוסח השאלה</Label>
+                            <Input
+                              value={question.title}
+                              onChange={(e) =>
+                                updateQuestion(index, { title: e.target.value })
+                              }
+                              className="mt-2"
+                              placeholder={`שאלה ${displayIndex}`}
+                            />
+                          </div>
+                        )}
 
                         {!isRatingSection && question.type === "MULTIPLE_CHOICE" && (
                           <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
@@ -741,6 +790,16 @@ export function QuestionBuilder({
                           </>
                         )}
 
+                        {question.type === "YES_NO" && (
+                          <BuilderYesNoBranchFields
+                            config={question.yesNoConfig}
+                            onChange={(yesNoConfig) =>
+                              updateQuestion(index, { yesNoConfig })
+                            }
+                          />
+                        )}
+
+                        {question.type !== "LABEL" && (
                         <BuilderFollowUpSettings
                           enabled={!!question.followUp}
                           followUp={question.followUp ?? null}
@@ -749,16 +808,25 @@ export function QuestionBuilder({
                               ? (question.options ?? [])
                                   .filter((o): o is { id: string; label: string } => !!o.id)
                                   .map((o) => ({ id: o.id!, label: o.label }))
-                              : []
+                              : question.type === "YES_NO"
+                                ? [
+                                    { id: YES_NO_OPTION_YES, label: "כן" },
+                                    { id: YES_NO_OPTION_NO, label: "לא" },
+                                  ]
+                                : []
                           }
                           onChange={(fu) => updateQuestion(index, { followUp: fu })}
                         />
+                        )}
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   );
                 })}
               </div>
 
+              <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -768,6 +836,18 @@ export function QuestionBuilder({
                 <Plus className="h-4 w-4" />
                 הוספת שאלה לפרק
               </Button>
+              {!isRatingSection && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => section.id && addLabelBlock(section.id)}
+                >
+                  <Plus className="h-4 w-4" />
+                  הוספת טקסט הצגה
+                </Button>
+              )}
+              </div>
             </SectionCard>
           );
         })}
@@ -800,4 +880,6 @@ export function QuestionBuilder({
     </form>
   );
 }
+
+
 

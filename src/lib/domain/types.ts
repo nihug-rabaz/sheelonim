@@ -4,7 +4,8 @@ export type QuestionType =
   | "YES_NO"
   | "MULTIPLE_CHOICE"
   | "TEXT"
-  | "RATING";
+  | "RATING"
+  | "LABEL";
 
 export const DEFAULT_THANK_YOU_MESSAGE =
   "תודה רבה על השתתפותך! התשובות שלך נקלטו בהצלחה.";
@@ -92,6 +93,17 @@ export interface QuestionFollowUp {
   exemptFromRequiredOptionIds?: string[];
 }
 
+export interface YesNoBranchField {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
+export interface QuestionYesNoConfig {
+  yesFields?: YesNoBranchField[];
+  noFields?: YesNoBranchField[];
+}
+
 export interface Question {
   id: string;
   type: QuestionType;
@@ -102,6 +114,7 @@ export interface Question {
   allowMultiple?: boolean;
   options?: QuestionOption[];
   followUp?: QuestionFollowUp;
+  yesNoConfig?: QuestionYesNoConfig;
   minRating?: number;
   maxRating?: number;
   ratingLabels?: RatingScaleLabel[];
@@ -132,6 +145,7 @@ export interface SubmissionAnswer {
   value: string | string[] | number | boolean;
   optionTexts?: Record<string, string>;
   followUpText?: string;
+  branchFieldTexts?: Record<string, string>;
 }
 
 export interface Submission {

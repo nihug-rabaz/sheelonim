@@ -55,6 +55,7 @@ export function mapQuestionnaireToBuilderState(
         allowFreeText: o.allowFreeText,
       })),
       followUp: q.followUp,
+      yesNoConfig: q.yesNoConfig,
       minRating: q.minRating,
       maxRating: q.maxRating,
       ratingLabels: q.ratingLabels,

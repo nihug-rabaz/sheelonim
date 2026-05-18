@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Sparkles } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -110,18 +109,6 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex-col items-start gap-2 border-t bg-muted/40">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Sparkles className="size-3.5" />
-              חשבונות הדגמה
-            </p>
-            <p className="text-xs text-muted-foreground" dir="ltr">
-              admin@mitav.local / admin123
-            </p>
-            <p className="text-xs text-muted-foreground" dir="ltr">
-              manager@mitav.local / manager123
-            </p>
-          </CardFooter>
         </Card>
       </div>
     </div>

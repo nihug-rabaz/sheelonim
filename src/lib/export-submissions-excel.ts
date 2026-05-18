@@ -1,4 +1,5 @@
 import type { Questionnaire, Submission } from "@/lib/domain/types";
+import { isAnswerableQuestion } from "@/lib/question-utils";
 import { formatQuestionAnswer } from "@/lib/format-question-answer";
 import { formatDateTime } from "@/lib/utils";
 import { formatPhoneDisplay } from "@/lib/validators/phone";
@@ -14,15 +15,16 @@ function buildExportRows(
   questionnaire: Questionnaire,
   submissions: Submission[]
 ): { headers: string[]; rows: string[][] } {
+  const exportQuestions = questionnaire.questions.filter(isAnswerableQuestion);
   const headers = [
     "טלפון",
     "תאריך מענה",
-    ...questionnaire.questions.map((q) => q.title),
+    ...exportQuestions.map((q) => q.title),
   ];
   const rows = submissions.map((s) => [
     formatPhoneDisplay(s.phone),
     formatDateTime(s.submittedAt),
-    ...questionnaire.questions.map((q) => {
+    ...exportQuestions.map((q) => {
       const answer = s.answers.find((a) => a.questionId === q.id);
       return formatQuestionAnswer(q, answer);
     }),

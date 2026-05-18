@@ -134,15 +134,29 @@ function QuestionSummaryCard({
     <Card>
       <CardContent className="py-4">
         <p className="font-medium">
-          {index + 1}. {question.title}
-          {question.required && <span className="mr-2 text-rose-500">*</span>}
+          {question.type === "LABEL" ? (
+            <>טקסט הצגה</>
+          ) : (
+            <>
+              {index + 1}. {question.title}
+              {question.required && <span className="mr-2 text-rose-500">*</span>}
+            </>
+          )}
         </p>
         <p className="mt-1.5 text-xs text-muted-foreground">
+          {question.type === "LABEL" ? (
+            <span className="block whitespace-pre-wrap text-sm text-foreground">
+              {question.title}
+            </span>
+          ) : (
+            <>
           {getQuestionTypeLabel(question.type)}
           {question.type === "MULTIPLE_CHOICE" &&
             ` · ${question.allowMultiple ? "בחירה מרובה" : "בחירה יחידה"}`}
           {question.options?.length ? ` · ${question.options.length} אפשרויות` : ""}
           {question.followUp ? ` · המשך: ${question.followUp.label}` : ""}
+            </>
+          )}
         </p>
       </CardContent>
     </Card>

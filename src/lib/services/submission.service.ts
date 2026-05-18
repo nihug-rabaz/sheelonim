@@ -6,6 +6,8 @@ import type {
   SubmissionAnswer,
 } from "@/lib/domain/types";
 import { isFollowUpRequired } from "@/lib/follow-up-logic";
+import { isAnswerableQuestion } from "@/lib/question-utils";
+import { getYesNoBranchFields } from "@/lib/yes-no-logic";
 import { repositories } from "@/lib/repositories";
 import {
   isValidIsraeliPhone,
@@ -76,6 +78,7 @@ export class SubmissionService {
 
   private validateAnswers(questions: Question[], answers: SubmissionAnswer[]): void {
     for (const question of questions) {
+      if (!isAnswerableQuestion(question)) continue;
       const answer = answers.find((a) => a.questionId === question.id);
       if (question.required && (!answer || this.isEmptyAnswer(answer.value))) {
         throw new Error(`שדה חובה לא מולא: ${question.title}`);
@@ -87,6 +90,17 @@ export class SubmissionService {
         const text = answer?.followUpText?.trim();
         if (!text) {
           throw new Error(`שדה חובה לא מולא: ${question.followUp!.label}`);
+        }
+      }
+      if (question.type === "YES_NO" && question.yesNoConfig) {
+        const fields = getYesNoBranchFields(
+          question.yesNoConfig,
+          answer?.value
+        );
+        for (const field of fields) {
+          if (field.required && !answer?.branchFieldTexts?.[field.id]?.trim()) {
+            throw new Error(`שדה חובה לא מולא: ${field.label}`);
+          }
         }
       }
     }
