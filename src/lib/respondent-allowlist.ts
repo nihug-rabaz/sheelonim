@@ -4,7 +4,6 @@ import type {
   Questionnaire,
   QuestionnaireRespondentAllowlist,
 } from "@/lib/domain/types";
-import { isValidIsraeliId, normalizeIsraeliId } from "@/lib/validators/israeli-id";
 import {
   isValidIsraeliPhone,
   normalizePhone,
@@ -30,33 +29,28 @@ export function isRespondentAllowlistEnabled(
 
 export function isRespondentAllowed(
   questionnaire: Questionnaire,
-  nationalId: string,
   phone: string
 ): boolean {
   const allowlist = questionnaire.respondentAllowlist ?? emptyRespondentAllowlist();
   if (!allowlist.enabled) return true;
-  const id = normalizeIsraeliId(nationalId);
   const normalizedPhone = normalizePhone(phone);
-  return allowlist.entries.some(
-    (entry) => entry.nationalId === id && entry.phone === normalizedPhone
-  );
+  return allowlist.entries.some((entry) => entry.phone === normalizedPhone);
 }
 
+type AllowlistEntryInput = AllowedRespondent & { nationalId?: string };
+
 export function normalizeAllowlistEntries(
-  entries: AllowedRespondent[]
+  entries: AllowlistEntryInput[]
 ): AllowedRespondent[] {
   const seen = new Set<string>();
   const result: AllowedRespondent[] = [];
   for (const entry of entries) {
-    const nationalId = normalizeIsraeliId(entry.nationalId);
     const phone = normalizePhone(entry.phone);
-    if (!isValidIsraeliId(nationalId) || !isValidIsraeliPhone(phone)) continue;
-    const key = `${nationalId}:${phone}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (!isValidIsraeliPhone(phone)) continue;
+    if (seen.has(phone)) continue;
+    seen.add(phone);
     result.push({
       id: entry.id || uuidv4(),
-      nationalId,
       phone,
     });
   }
@@ -73,16 +67,6 @@ export function parseAllowlistCsv(csv: string): AllowedRespondent[] {
 
   const rows = lines.map(parseCsvLine);
   const header = rows[0].map((cell) => cell.trim().toLowerCase());
-  const idCol = findColumnIndex(header, [
-    "תעודת זהות",
-    "ת.ז",
-    'ת"ז',
-    "תז",
-    "tz",
-    "nationalid",
-    "national_id",
-    "id",
-  ]);
   const phoneCol = findColumnIndex(header, [
     "טלפון",
     "phone",
@@ -90,21 +74,16 @@ export function parseAllowlistCsv(csv: string): AllowedRespondent[] {
     "נייד",
     "פלאפון",
   ]);
-
-  const dataRows =
-    idCol >= 0 && phoneCol >= 0 ? rows.slice(1) : rows;
-
-  const resolvedIdCol = idCol >= 0 ? idCol : 0;
-  const resolvedPhoneCol = phoneCol >= 0 ? phoneCol : 1;
+  const hasHeader = phoneCol >= 0;
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const resolvedPhoneCol = phoneCol >= 0 ? phoneCol : 0;
 
   const entries: AllowedRespondent[] = [];
   for (const row of dataRows) {
-    const nationalId = row[resolvedIdCol]?.trim() ?? "";
     const phone = row[resolvedPhoneCol]?.trim() ?? "";
-    if (!nationalId && !phone) continue;
+    if (!phone) continue;
     entries.push({
       id: uuidv4(),
-      nationalId,
       phone,
     });
   }

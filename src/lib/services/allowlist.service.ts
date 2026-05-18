@@ -10,25 +10,23 @@ import { repositories } from "@/lib/repositories";
 export class AllowlistService {
   async assertRespondentCanSubmit(
     questionnaire: Questionnaire,
-    nationalId: string,
     phone: string
   ): Promise<void> {
     const fresh = await this.refreshFromGoogleSheetsIfConfigured(questionnaire);
-    if (!isRespondentAllowed(fresh, nationalId, phone)) {
+    if (!isRespondentAllowed(fresh, phone)) {
       throw new Error(RESPONDENT_ACCESS_DENIED_MESSAGE);
     }
   }
 
   async verifyRespondent(
     questionnaire: Questionnaire,
-    nationalId: string,
     phone: string
   ): Promise<boolean> {
     const allowlist = questionnaire.respondentAllowlist ?? emptyRespondentAllowlist();
     if (!allowlist.enabled) return true;
 
     const fresh = await this.refreshFromGoogleSheetsIfConfigured(questionnaire);
-    return isRespondentAllowed(fresh, nationalId, phone);
+    return isRespondentAllowed(fresh, phone);
   }
 
   async syncFromGoogleSheets(questionnaireId: string): Promise<Questionnaire> {

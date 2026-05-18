@@ -35,7 +35,6 @@ export interface QuestionnaireLogoSettings {
 
 export interface AllowedRespondent {
   id: string;
-  nationalId: string;
   phone: string;
 }
 

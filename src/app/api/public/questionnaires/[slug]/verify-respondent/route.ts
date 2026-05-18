@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { RESPONDENT_ACCESS_DENIED_MESSAGE } from "@/lib/respondent-allowlist";
 import { repositories } from "@/lib/repositories";
 import { allowlistService, questionnaireService } from "@/lib/services";
-import { isValidIsraeliId, normalizeIsraeliId } from "@/lib/validators/israeli-id";
 import {
   isValidIsraeliPhone,
   normalizePhone,
@@ -13,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const { nationalId, phone } = await request.json();
+  const { phone } = await request.json();
 
   const questionnaire = await questionnaireService.getBySlug(slug);
   if (!questionnaire) {
@@ -28,12 +27,8 @@ export async function POST(
     );
   }
 
-  const normalizedId = normalizeIsraeliId(String(nationalId ?? ""));
   const normalizedPhone = normalizePhone(String(phone ?? ""));
 
-  if (!isValidIsraeliId(normalizedId)) {
-    return NextResponse.json({ error: "מספר תעודת זהות לא תקין" }, { status: 400 });
-  }
   if (!isValidIsraeliPhone(normalizedPhone)) {
     return NextResponse.json({ error: "מספר טלפון לא תקין" }, { status: 400 });
   }
@@ -43,7 +38,6 @@ export async function POST(
     questionnaire;
   const allowed = await allowlistService.verifyRespondent(
     latestQuestionnaire,
-    normalizedId,
     normalizedPhone
   );
 

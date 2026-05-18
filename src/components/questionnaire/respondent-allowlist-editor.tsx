@@ -36,10 +36,7 @@ export function RespondentAllowlistEditor({
   const fileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState("");
 
-  const updateEntry = (
-    id: string,
-    patch: Partial<{ nationalId: string; phone: string }>
-  ) => {
+  const updateEntry = (id: string, patch: Partial<{ phone: string }>) => {
     onChange({
       ...allowlist,
       entries: allowlist.entries.map((entry) =>
@@ -51,10 +48,7 @@ export function RespondentAllowlistEditor({
   const addRow = () => {
     onChange({
       ...allowlist,
-      entries: [
-        ...allowlist.entries,
-        { id: uuidv4(), nationalId: "", phone: "" },
-      ],
+      entries: [...allowlist.entries, { id: uuidv4(), phone: "" }],
     });
   };
 
@@ -90,7 +84,7 @@ export function RespondentAllowlistEditor({
             הגבלת מענה לרשימה בלבד
           </Label>
           <p className="mt-1 text-sm text-muted-foreground">
-            רק אנשים ברשימה יוכלו למלא את השאלון
+            רק מספרי טלפון ברשימה יוכלו למלא את השאלון
           </p>
         </div>
         <Switch
@@ -114,7 +108,7 @@ export function RespondentAllowlistEditor({
           className="font-mono text-sm"
         />
         <p className="mt-2 text-xs text-muted-foreground">
-          פרסמו את הגיליון לצפייה ברשת. עמודות: תעודת זהות וטלפון. הסנכרון יתבצע
+          פרסמו את הגיליון לצפייה ברשת. עמודה נדרשת: טלפון. הסנכרון יתבצע
           אוטומטית בזמן ניסיון מענה וגם בלחיצה על &quot;סנכרון מגוגל שיטס&quot;.
         </p>
         {allowlist.googleSheetsSyncedAt && (
@@ -163,7 +157,6 @@ export function RespondentAllowlistEditor({
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-12 text-center">#</TableHead>
-              <TableHead>תעודת זהות</TableHead>
               <TableHead>טלפון</TableHead>
               <TableHead className="w-16" />
             </TableRow>
@@ -171,7 +164,7 @@ export function RespondentAllowlistEditor({
           <TableBody>
             {allowlist.entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                   אין רשומות ברשימה
                 </TableCell>
               </TableRow>
@@ -180,17 +173,6 @@ export function RespondentAllowlistEditor({
                 <TableRow key={entry.id}>
                   <TableCell className="text-center text-muted-foreground">
                     {index + 1}
-                  </TableCell>
-                  <TableCell className="p-2">
-                    <Input
-                      value={entry.nationalId}
-                      onChange={(e) =>
-                        updateEntry(entry.id, { nationalId: e.target.value })
-                      }
-                      placeholder="9 ספרות"
-                      inputMode="numeric"
-                      className="h-9 font-mono"
-                    />
                   </TableCell>
                   <TableCell className="p-2">
                     <Input

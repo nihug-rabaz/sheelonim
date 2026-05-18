@@ -31,7 +31,7 @@ export async function fetchAllowlistFromGoogleSheets(
   const csv = await response.text();
   const entries = parseAllowlistCsv(csv);
   if (entries.length === 0) {
-    throw new Error("הגיליון ריק או שאין בו עמודות תעודת זהות וטלפון");
+    throw new Error("הגיליון ריק או שאין בו עמודת טלפון");
   }
   return entries;
 }

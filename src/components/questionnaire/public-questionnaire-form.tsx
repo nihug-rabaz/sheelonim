@@ -130,7 +130,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     const res = await fetch(`/api/public/questionnaires/${slug}/verify-respondent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nationalId, phone }),
+      body: JSON.stringify({ phone }),
     });
     const data = await res.json();
     setVerifying(false);

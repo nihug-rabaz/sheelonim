@@ -46,7 +46,6 @@ export class SubmissionService {
     }
     await allowlistService.assertRespondentCanSubmit(
       latestQuestionnaire,
-      normalizedId,
       normalizedPhone
     );
 
