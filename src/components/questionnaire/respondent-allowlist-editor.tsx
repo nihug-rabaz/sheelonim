@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import type { QuestionnaireRespondentAllowlist } from "@/lib/domain/types";
-import { parseAllowlistCsv } from "@/lib/respondent-allowlist";
+import { parseAllowlistCsv, parseAllowlistTxt } from "@/lib/respondent-allowlist";
 import { formatPhoneDisplay } from "@/lib/validators/phone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,8 @@ export function RespondentAllowlistEditor({
   onSyncGoogleSheets,
   syncing = false,
 }: RespondentAllowlistEditorProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const csvFileRef = useRef<HTMLInputElement>(null);
+  const txtFileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState("");
 
   const updateEntry = (id: string, patch: Partial<{ phone: string }>) => {
@@ -59,21 +60,24 @@ export function RespondentAllowlistEditor({
     });
   };
 
-  const importCsvFile = async (files: FileList | null) => {
+  const importAllowlistFile = async (
+    files: FileList | null,
+    format: "csv" | "txt"
+  ) => {
     if (!files?.[0]) return;
     setImportError("");
     try {
       const text = await files[0].text();
-      const parsed = parseAllowlistCsv(text);
+      const parsed =
+        format === "txt" ? parseAllowlistTxt(text) : parseAllowlistCsv(text);
       if (!parsed.length) {
-        setImportError("לא נמצאו שורות תקינות בקובץ");
+        setImportError("לא נמצאו מספרי טלפון תקינים בקובץ");
         return;
       }
       onChange({ ...allowlist, entries: parsed });
     } catch {
       setImportError("שגיאה בקריאת הקובץ");
     }
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
@@ -129,20 +133,42 @@ export function RespondentAllowlistEditor({
             סנכרון מגוגל שיטס
           </Button>
           <input
-            ref={fileRef}
+            ref={csvFileRef}
             type="file"
             accept=".csv,text/csv"
             className="hidden"
-            onChange={(e) => importCsvFile(e.target.files)}
+            onChange={(e) => {
+              importAllowlistFile(e.target.files, "csv");
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={txtFileRef}
+            type="file"
+            accept=".txt,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              importAllowlistFile(e.target.files, "txt");
+              e.target.value = "";
+            }}
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => csvFileRef.current?.click()}
           >
             <Upload className="h-4 w-4" />
             ייבוא CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => txtFileRef.current?.click()}
+          >
+            <Upload className="h-4 w-4" />
+            ייבוא TXT
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={addRow}>
             <Plus className="h-4 w-4" />

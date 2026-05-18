@@ -90,6 +90,21 @@ export function parseAllowlistCsv(csv: string): AllowedRespondent[] {
   return normalizeAllowlistEntries(entries);
 }
 
+export function parseAllowlistTxt(text: string): AllowedRespondent[] {
+  const lines = text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const entries: AllowedRespondent[] = lines.map((phone) => ({
+    id: uuidv4(),
+    phone,
+  }));
+
+  return normalizeAllowlistEntries(entries);
+}
+
 function findColumnIndex(header: string[], aliases: string[]): number {
   for (const alias of aliases) {
     const index = header.findIndex(
