@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "favicons": "node scripts/generate-favicons.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -52,6 +53,8 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
     "tailwindcss": "^4",
     "tsx": "^4.22.1",
     "typescript": "^5"
