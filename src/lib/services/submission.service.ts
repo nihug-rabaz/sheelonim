@@ -6,7 +6,6 @@ import type {
   SubmissionAnswer,
 } from "@/lib/domain/types";
 import { repositories } from "@/lib/repositories";
-import { normalizeIsraeliId } from "@/lib/validators/israeli-id";
 import {
   isValidIsraeliPhone,
   normalizePhone,
@@ -65,13 +64,12 @@ export class SubmissionService {
 
   async findRespondentSubmissions(
     questionnaireId: string,
-    nationalId?: string,
-    phone?: string
+    phone: string
   ): Promise<Submission[]> {
     return repositories.submissions.findByRespondent(
       questionnaireId,
-      nationalId ? normalizeIsraeliId(nationalId) : undefined,
-      phone ? normalizePhone(phone) : undefined
+      undefined,
+      normalizePhone(phone)
     );
   }
 

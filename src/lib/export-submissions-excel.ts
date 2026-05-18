@@ -15,13 +15,11 @@ function buildExportRows(
   submissions: Submission[]
 ): { headers: string[]; rows: string[][] } {
   const headers = [
-    "תעודת זהות",
     "טלפון",
     "תאריך מענה",
     ...questionnaire.questions.map((q) => q.title),
   ];
   const rows = submissions.map((s) => [
-    s.nationalId,
     formatPhoneDisplay(s.phone),
     formatDateTime(s.submittedAt),
     ...questionnaire.questions.map((q) => {

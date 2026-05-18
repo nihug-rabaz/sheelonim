@@ -24,17 +24,11 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const nationalId = url.searchParams.get("nationalId") ?? undefined;
   const phone = url.searchParams.get("phone") ?? undefined;
 
-  const submissions =
-    nationalId || phone
-      ? await submissionService.findRespondentSubmissions(
-          id,
-          nationalId,
-          phone
-        )
-      : await submissionService.getByQuestionnaire(id);
+  const submissions = phone
+    ? await submissionService.findRespondentSubmissions(id, phone)
+    : await submissionService.getByQuestionnaire(id);
 
   const analytics = analyticsService.analyze(questionnaire, submissions);
 

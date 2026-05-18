@@ -169,7 +169,6 @@ export function QuestionnaireAdminPanel({
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [analytics, setAnalytics] = useState<QuestionAnalytics[]>([]);
   const [publicUrl, setPublicUrl] = useState("");
-  const [searchId, setSearchId] = useState("");
   const [searchPhone, setSearchPhone] = useState("");
   const [filtered, setFiltered] = useState<Submission[]>([]);
   const [selected, setSelected] = useState<Submission | null>(null);
@@ -302,13 +301,20 @@ export function QuestionnaireAdminPanel({
   };
 
   const searchRespondent = async () => {
-    const params = new URLSearchParams();
-    if (searchId) params.set("nationalId", searchId);
-    if (searchPhone) params.set("phone", searchPhone);
+    const phone = searchPhone.trim();
+    if (!phone) {
+      toast.error("נא להזין מספר טלפון לחיפוש");
+      return;
+    }
+    const params = new URLSearchParams({ phone });
     const res = await fetch(
       `/api/questionnaires/${questionnaireId}/submissions?${params}`
     );
     const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error ?? "שגיאה בחיפוש");
+      return;
+    }
     setFiltered(data.submissions ?? []);
     setSelected(data.submissions?.[0] ?? null);
   };
@@ -456,7 +462,6 @@ export function QuestionnaireAdminPanel({
           <table className="w-full min-w-[600px] text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="p-3 text-right">ת.ז.</th>
                 <th className="p-3 text-right">טלפון</th>
                 <th className="p-3 text-right">תאריך</th>
                 {questionnaire.questions.map((q) => (
@@ -470,7 +475,7 @@ export function QuestionnaireAdminPanel({
               {submissions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={3 + questionnaire.questions.length}
+                    colSpan={2 + questionnaire.questions.length}
                     className="p-8 text-center text-slate-400"
                   >
                     אין תשובות עדיין
@@ -479,7 +484,6 @@ export function QuestionnaireAdminPanel({
               ) : (
                 submissions.map((s) => (
                   <tr key={s.id} className="border-t border-slate-100">
-                    <td className="p-3">{s.nationalId}</td>
                     <td className="p-3">{formatPhoneDisplay(s.phone)}</td>
                     <td className="p-3">{formatDateTime(s.submittedAt)}</td>
                     {questionnaire.questions.map((q) => (
@@ -498,19 +502,13 @@ export function QuestionnaireAdminPanel({
         <TabsContent value="respondent" className="mt-4">
         <Card>
           <CardContent>
-          <div className="grid gap-5 sm:grid-cols-3">
-            <FormField label="תעודת זהות">
-              <Input
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-                placeholder="9 ספרות"
-              />
-            </FormField>
+          <div className="grid gap-5 sm:grid-cols-2">
             <FormField label="טלפון">
               <Input
                 value={searchPhone}
                 onChange={(e) => setSearchPhone(e.target.value)}
                 placeholder="05X-XXXXXXX"
+                dir="ltr"
               />
             </FormField>
             <div className="flex items-end">
