@@ -337,7 +337,6 @@ export function QuestionnaireAdminPanel({
               <Switch
                 id="questionnaire-active"
                 checked={!questionnaire.isDraft && questionnaire.isActive}
-                disabled={activeSaving}
                 onCheckedChange={(checked) => {
                   if (!activeSaving) toggleActive(checked);
                 }}
