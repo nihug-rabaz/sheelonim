@@ -291,12 +291,14 @@ export function QuestionBuilder({
               className="mt-2"
             />
           </div>
+          {!onSaveDraft && (
           <div className="flex flex-wrap items-center gap-8">
             <div className="flex items-center gap-3">
               <Switch checked={isActive} onCheckedChange={setIsActive} id="active" />
               <Label htmlFor="active">שאלון פעיל</Label>
             </div>
           </div>
+          )}
           <div>
             <Label htmlFor="closesAt">תאריך ושעת סגירה (אופציונלי)</Label>
             <Input
@@ -766,3 +768,4 @@ export function QuestionBuilder({
     </form>
   );
 }
+

@@ -27,10 +27,13 @@ export function QuestionnairesList({
   const [items, setItems] = useState(initial);
 
   const toggleActive = async (id: string, isActive: boolean) => {
+    const item = items.find((q) => q.id === id);
+    const payload =
+      item?.isDraft && isActive ? { isDraft: false, isActive: true } : { isActive };
     const res = await fetch(`/api/questionnaires/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -38,9 +41,21 @@ export function QuestionnairesList({
       return;
     }
     setItems((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, isActive: data.questionnaire.isActive } : q))
+      prev.map((q) =>
+        q.id === id
+          ? {
+              ...q,
+              ...data.questionnaire,
+              publicUrl: data.publicUrl ?? q.publicUrl,
+            }
+          : q
+      )
     );
-    toast.success(isActive ? "השאלון הופעל" : "השאלון הושבת");
+    if (item?.isDraft && isActive) {
+      toast.success("השאלון פורסם והופעל");
+    } else {
+      toast.success(isActive ? "השאלון הופעל" : "השאלון הושבת");
+    }
   };
 
   if (items.length === 0) {
@@ -91,22 +106,21 @@ export function QuestionnairesList({
               </Link>
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-4">
-                {!q.isDraft ? (
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id={`active-${q.id}`}
-                      checked={q.isActive}
-                      onCheckedChange={(checked) => toggleActive(q.id, checked)}
-                    />
-                    <Label htmlFor={`active-${q.id}`} className="text-sm">
-                      פעיל
-                    </Label>
-                  </div>
-                ) : (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id={`active-${q.id}`}
+                    checked={!q.isDraft && q.isActive}
+                    onCheckedChange={(checked) => toggleActive(q.id, checked)}
+                  />
+                  <Label htmlFor={`active-${q.id}`} className="text-sm">
+                    {q.isDraft ? "פרסום" : "פעיל"}
+                  </Label>
+                </div>
+                {q.isDraft && (
                   <Link href={`/manage/${envId}/questionnaires/new?draft=${q.id}`}>
                     <Button variant="outline" size="sm" className="gap-2">
                       <Pencil className="h-4 w-4" />
-                      המשך עריכה
+                      עריכה
                     </Button>
                   </Link>
                 )}
@@ -123,3 +137,5 @@ export function QuestionnairesList({
     </ul>
   );
 }
+
+

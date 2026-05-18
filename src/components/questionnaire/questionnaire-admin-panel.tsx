@@ -276,18 +276,26 @@ export function QuestionnaireAdminPanel({
   };
 
   const toggleActive = async (isActive: boolean) => {
-    if (!questionnaire || questionnaire.isDraft) return;
+    if (!questionnaire) return;
     setActiveSaving(true);
+    const payload = questionnaire.isDraft
+      ? { isDraft: false, isActive }
+      : { isActive };
     const res = await fetch(`/api/questionnaires/${questionnaireId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setActiveSaving(false);
     if (res.ok) {
       setQuestionnaire(data.questionnaire);
-      toast.success(isActive ? "השאלון הופעל" : "השאלון הושבת");
+      if (data.publicUrl) setPublicUrl(data.publicUrl);
+      if (questionnaire.isDraft && isActive) {
+        toast.success("השאלון פורסם והופעל");
+      } else {
+        toast.success(isActive ? "השאלון הופעל" : "השאלון הושבת");
+      }
     } else {
       toast.error(data.error ?? "שגיאה בעדכון");
     }
@@ -325,21 +333,21 @@ export function QuestionnaireAdminPanel({
             <CardDescription className="mt-1">{questionnaire.description}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {questionnaire.isDraft ? (
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <Switch
+                id="questionnaire-active"
+                checked={!questionnaire.isDraft && questionnaire.isActive}
+                disabled={activeSaving}
+                onCheckedChange={(checked) => {
+                  if (!activeSaving) toggleActive(checked);
+                }}
+              />
+              <Label htmlFor="questionnaire-active" className="text-sm">
+                {questionnaire.isDraft ? "פרסום והפעלת שאלון" : "שאלון פעיל"}
+              </Label>
+            </div>
+            {questionnaire.isDraft && (
               <Badge variant="warning">טיוטה</Badge>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                <Switch
-                  id="questionnaire-active"
-                  checked={questionnaire.isActive}
-                  onCheckedChange={(checked) => {
-                    if (!activeSaving) toggleActive(checked);
-                  }}
-                />
-                <Label htmlFor="questionnaire-active" className="text-sm">
-                  שאלון פעיל
-                </Label>
-              </div>
             )}
             {questionnaire.closesAt && (
               <Badge variant="warning">

@@ -42,15 +42,22 @@ export async function PATCH(
     return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const updated = await questionnaireService.update(id, {
-    ...body,
-    sections: body.sections,
-    questions: body.questions as QuestionInput[] | undefined,
-  });
+  try {
+    const body = await request.json();
+    const updated = await questionnaireService.update(id, {
+      ...body,
+      sections: body.sections,
+      questions: body.questions as QuestionInput[] | undefined,
+    });
 
-  return NextResponse.json({
-    questionnaire: updated,
-    publicUrl: questionnaireService.getPublicUrl(updated.slug),
-  });
+    return NextResponse.json({
+      questionnaire: updated,
+      publicUrl: questionnaireService.getPublicUrl(updated.slug),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "שגיאה בעדכון" },
+      { status: 400 }
+    );
+  }
 }

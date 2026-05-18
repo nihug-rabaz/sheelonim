@@ -115,25 +115,14 @@ export class QuestionnaireService {
     const existing = await repositories.questionnaires.findById(id);
     if (!existing) throw new Error("שאלון לא נמצא");
 
-    const nextIsDraft =
-      input.isDraft !== undefined ? input.isDraft : existing.isDraft;
-    const publishingDraft = existing.isDraft && nextIsDraft === false;
+    const publishRequested =
+      input.isDraft === false ||
+      (existing.isDraft && input.isActive === true);
 
-    if (publishingDraft && input.sections && input.questions) {
-      this.validatePublishInput({
-        environmentId: existing.environmentId,
-        title: input.title ?? existing.title,
-        description: input.description ?? existing.description,
-        isActive: input.isActive ?? existing.isActive,
-        closesAt:
-          input.closesAt !== undefined ? input.closesAt : existing.closesAt,
-        thankYouMessage: input.thankYouMessage ?? existing.thankYouMessage,
-        sections: input.sections,
-        questions: input.questions,
-        createdById: existing.createdById,
-      });
-    } else if (nextIsDraft && input.title !== undefined && !input.title.trim()) {
-      throw new Error("נא להזין כותרת לשמירת הטיוטה");
+    let nextIsDraft =
+      input.isDraft !== undefined ? input.isDraft : existing.isDraft;
+    if (publishRequested) {
+      nextIsDraft = false;
     }
 
     const sections = input.sections
@@ -142,23 +131,42 @@ export class QuestionnaireService {
     const sectionIdMap = input.sections
       ? this.buildSectionIdMap(input.sections, sections)
       : undefined;
+    const questions = input.questions
+      ? this.buildQuestions(input.questions, sectionIdMap ?? new Map())
+      : existing.questions;
+
+    const mergedTitle = (input.title ?? existing.title).trim();
+
+    if (existing.isDraft && !nextIsDraft) {
+      this.validatePublishQuestionnaire({
+        ...existing,
+        title: mergedTitle,
+        description: input.description ?? existing.description,
+        sections,
+        questions,
+      });
+    } else if (nextIsDraft && input.title !== undefined && !mergedTitle) {
+      throw new Error("נא להזין כותרת לשמירת הטיוטה");
+    }
+
+    const nextIsActive = nextIsDraft
+      ? false
+      : input.isActive !== undefined
+        ? input.isActive
+        : publishRequested
+          ? true
+          : existing.isActive;
 
     const updated: Questionnaire = {
       ...existing,
-      title: (input.title ?? existing.title).trim(),
+      title: mergedTitle,
       description: input.description ?? existing.description,
       isDraft: nextIsDraft,
-      isActive: nextIsDraft
-        ? false
-        : input.isActive !== undefined
-          ? input.isActive
-          : existing.isActive,
+      isActive: nextIsActive,
       closesAt: input.closesAt !== undefined ? input.closesAt : existing.closesAt,
       thankYouMessage: input.thankYouMessage ?? existing.thankYouMessage,
       sections,
-      questions: input.questions
-        ? this.buildQuestions(input.questions, sectionIdMap ?? new Map())
-        : existing.questions,
+      questions,
       logoSettings: input.logoSettings ?? existing.logoSettings,
       respondentAllowlist:
         input.respondentAllowlist ?? existing.respondentAllowlist,
@@ -203,6 +211,21 @@ export class QuestionnaireService {
       throw new Error("לכל הפרקים נדרשת כותרת");
     }
     if (input.questions.some((q) => !q.title.trim())) {
+      throw new Error("לכל השאלות נדרשת כותרת");
+    }
+  }
+
+  private validatePublishQuestionnaire(questionnaire: Questionnaire): void {
+    if (!questionnaire.title?.trim()) {
+      throw new Error("נא להזין כותרת לשאלון");
+    }
+    if (questionnaire.sections.some((s) => !s.title.trim())) {
+      throw new Error("לכל הפרקים נדרשת כותרת");
+    }
+    if (questionnaire.questions.length === 0) {
+      throw new Error("יש להוסיף לפחות שאלה אחת לפני פרסום");
+    }
+    if (questionnaire.questions.some((q) => !q.title.trim())) {
       throw new Error("לכל השאלות נדרשת כותרת");
     }
   }
