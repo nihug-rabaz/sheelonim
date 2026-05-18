@@ -3,6 +3,7 @@ import { emptyLogoSettings } from "@/lib/brand-logos";
 import { emptyRespondentAllowlist } from "@/lib/respondent-allowlist";
 import type {
   Question,
+  QuestionFollowUp,
   Questionnaire,
   QuestionnaireLogoSettings,
   QuestionnaireRespondentAllowlist,
@@ -34,7 +35,7 @@ export interface QuestionInput {
   sectionId: string;
   allowMultiple?: boolean;
   options?: { id?: string; label: string; allowFreeText?: boolean }[];
-  followUp?: { label: string; required: boolean } | null;
+  followUp?: QuestionFollowUp | null;
   minRating?: number;
   maxRating?: number;
   ratingLabels?: { value: number; label: string }[];
@@ -286,7 +287,16 @@ export class QuestionnaireService {
         allowFreeText: o.allowFreeText ?? false,
       })),
       followUp: q.followUp?.label?.trim()
-        ? { label: q.followUp.label.trim(), required: q.followUp.required }
+        ? {
+            label: q.followUp.label.trim(),
+            required: q.followUp.required,
+            ...(q.followUp.showForOptionIds?.length
+              ? { showForOptionIds: q.followUp.showForOptionIds }
+              : {}),
+            ...(q.followUp.exemptFromRequiredOptionIds?.length
+              ? { exemptFromRequiredOptionIds: q.followUp.exemptFromRequiredOptionIds }
+              : {}),
+          }
         : undefined,
       minRating: q.type === "RATING" ? (q.minRating ?? 1) : undefined,
       maxRating: q.type === "RATING" ? (q.maxRating ?? 5) : undefined,

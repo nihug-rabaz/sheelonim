@@ -88,6 +88,8 @@ export interface QuestionSection {
 export interface QuestionFollowUp {
   label: string;
   required: boolean;
+  showForOptionIds?: string[];
+  exemptFromRequiredOptionIds?: string[];
 }
 
 export interface Question {

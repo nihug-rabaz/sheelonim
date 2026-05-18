@@ -5,6 +5,7 @@ import type {
   Submission,
   SubmissionAnswer,
 } from "@/lib/domain/types";
+import { isFollowUpRequired } from "@/lib/follow-up-logic";
 import { repositories } from "@/lib/repositories";
 import {
   isValidIsraeliPhone,
@@ -82,10 +83,10 @@ export class SubmissionService {
       if (question.type === "MULTIPLE_CHOICE" && answer) {
         this.validateMultipleChoiceAnswer(question, answer);
       }
-      if (question.followUp?.required) {
+      if (isFollowUpRequired(question.followUp, question, answer?.value)) {
         const text = answer?.followUpText?.trim();
         if (!text) {
-          throw new Error(`שדה חובה לא מולא: ${question.followUp.label}`);
+          throw new Error(`שדה חובה לא מולא: ${question.followUp!.label}`);
         }
       }
     }

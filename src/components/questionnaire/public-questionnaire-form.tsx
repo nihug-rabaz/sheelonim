@@ -20,6 +20,7 @@ import {
   PublicRatingButtons,
   PublicRatingSectionMatrix,
 } from "@/components/questionnaire/rating-scale-fields";
+import { isFollowUpRequired, isFollowUpVisible } from "@/lib/follow-up-logic";
 import { cn } from "@/lib/utils";
 import { UserRound } from "lucide-react";
 import type { BrandLogo, LogoSize } from "@/lib/domain/types";
@@ -156,7 +157,10 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
           }
         }
       }
-      if (q.followUp?.required && !followUpTexts[q.id]?.trim()) {
+      if (
+        isFollowUpRequired(q.followUp, q, val) &&
+        !followUpTexts[q.id]?.trim()
+      ) {
         errs[`${q.id}:followUp`] = "שדה חובה";
       }
     }
@@ -169,8 +173,20 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     setErrors((prev) => {
       const next = { ...prev };
       delete next[questionId];
+      delete next[`${questionId}:followUp`];
       return next;
     });
+    const question = questionnaire?.questions.find((q) => q.id === questionId);
+    if (
+      question?.followUp &&
+      !isFollowUpVisible(question.followUp, question, value)
+    ) {
+      setFollowUpTexts((prev) => {
+        const next = { ...prev };
+        delete next[questionId];
+        return next;
+      });
+    }
   };
 
   const toggleMulti = (questionId: string, optionId: string) => {
@@ -511,17 +527,22 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                     />
                   )}
 
-                  {q.followUp && (
-                    <PublicFollowUpField
-                      label={q.followUp.label}
-                      required={q.followUp.required}
-                      value={followUpTexts[q.id] ?? ""}
-                      error={errors[`${q.id}:followUp`]}
-                      onChange={(text) =>
-                        setFollowUpTexts((prev) => ({ ...prev, [q.id]: text }))
-                      }
-                    />
-                  )}
+                  {q.followUp &&
+                    isFollowUpVisible(q.followUp, q, answers[q.id]) && (
+                      <PublicFollowUpField
+                        label={q.followUp.label}
+                        required={isFollowUpRequired(
+                          q.followUp,
+                          q,
+                          answers[q.id]
+                        )}
+                        value={followUpTexts[q.id] ?? ""}
+                        error={errors[`${q.id}:followUp`]}
+                        onChange={(text) =>
+                          setFollowUpTexts((prev) => ({ ...prev, [q.id]: text }))
+                        }
+                      />
+                    )}
 
                   {errors[q.id] && (
                     <p className="mt-2 text-sm text-destructive">{errors[q.id]}</p>

@@ -53,7 +53,10 @@ function createQuestion(sectionId: string, sectionType: SectionType = "REGULAR")
     required: false,
     sectionId,
     allowMultiple: false,
-    options: [{ label: "אפשרות 1" }, { label: "אפשרות 2" }],
+    options: [
+      { id: uuidv4(), label: "אפשרות 1" },
+      { id: uuidv4(), label: "אפשרות 2" },
+    ],
     minRating: 1,
     maxRating: 5,
     ratingLabels: normalizeRatingLabels(1, 5),
@@ -235,7 +238,9 @@ export function QuestionBuilder({
       ...q,
       options:
         q.type === "MULTIPLE_CHOICE"
-          ? q.options?.filter((o) => o.label.trim())
+          ? q.options
+              ?.filter((o) => o.label.trim())
+              .map((o) => ({ ...o, id: o.id ?? uuidv4() }))
           : undefined,
     })),
     logoSettings,
@@ -645,6 +650,7 @@ export function QuestionBuilder({
                                     options: [
                                       ...(question.options ?? []),
                                       {
+                                        id: uuidv4(),
                                         label: `אפשרות ${(question.options?.length ?? 0) + 1}`,
                                       },
                                     ],
@@ -737,8 +743,14 @@ export function QuestionBuilder({
 
                         <BuilderFollowUpSettings
                           enabled={!!question.followUp}
-                          label={question.followUp?.label ?? "נימוק:"}
-                          required={question.followUp?.required ?? false}
+                          followUp={question.followUp ?? null}
+                          options={
+                            question.type === "MULTIPLE_CHOICE"
+                              ? (question.options ?? [])
+                                  .filter((o): o is { id: string; label: string } => !!o.id)
+                                  .map((o) => ({ id: o.id!, label: o.label }))
+                              : []
+                          }
                           onChange={(fu) => updateQuestion(index, { followUp: fu })}
                         />
                       </CardContent>
