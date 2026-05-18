@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, Search } from "lucide-react";
+import Link from "next/link";
+import { Download, Pencil, Search } from "lucide-react";
 import { CopyLinkButton } from "@/components/questionnaire/copy-link-button";
 import type {
   BrandLogo,
@@ -19,7 +20,7 @@ import { RespondentAllowlistEditor } from "@/components/questionnaire/respondent
 import { getQuestionTypeLabel } from "@/lib/question-types";
 import type { QuestionAnalytics } from "@/lib/services/analytics.service";
 import { QuestionChart } from "@/components/analytics/question-chart";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import {
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQuestionAnswer } from "@/lib/format-question-answer";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { formatPhoneDisplay } from "@/lib/validators/phone";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -184,6 +185,7 @@ export function QuestionnaireAdminPanel({
   const [allowlistSyncing, setAllowlistSyncing] = useState(false);
   const [allowlistMessage, setAllowlistMessage] = useState("");
   const [activeSaving, setActiveSaving] = useState(false);
+  const [pdfSaving, setPdfSaving] = useState(false);
 
   const load = useCallback(async () => {
     const [qRes, sRes] = await Promise.all([
@@ -274,6 +276,23 @@ export function QuestionnaireAdminPanel({
     }
   };
 
+  const togglePdfDownload = async (enabled: boolean) => {
+    setPdfSaving(true);
+    const res = await fetch(`/api/questionnaires/${questionnaireId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allowRespondentPdfDownload: enabled }),
+    });
+    const data = await res.json();
+    setPdfSaving(false);
+    if (res.ok) {
+      setQuestionnaire(data.questionnaire);
+      toast.success(enabled ? "הורדת PDF הופעלה" : "הורדת PDF בוטלה");
+    } else {
+      toast.error(data.error ?? "שגיאה בעדכון");
+    }
+  };
+
   const toggleActive = async (isActive: boolean) => {
     if (!questionnaire) return;
     setActiveSaving(true);
@@ -339,6 +358,17 @@ export function QuestionnaireAdminPanel({
             <CardDescription className="mt-1">{questionnaire.description}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={
+                questionnaire.isDraft
+                  ? `/manage/${questionnaire.environmentId}/questionnaires/new?draft=${questionnaireId}`
+                  : `/manage/${questionnaire.environmentId}/questionnaires/new?edit=${questionnaireId}`
+              }
+              className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-2")}
+            >
+              <Pencil className="size-4" />
+              עריכת שאלון
+            </Link>
             <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <Switch
                 id="questionnaire-active"
@@ -349,6 +379,18 @@ export function QuestionnaireAdminPanel({
               />
               <Label htmlFor="questionnaire-active" className="text-sm">
                 {questionnaire.isDraft ? "פרסום והפעלת שאלון" : "שאלון פעיל"}
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <Switch
+                id="questionnaire-pdf"
+                checked={questionnaire.allowRespondentPdfDownload ?? true}
+                onCheckedChange={(checked) => {
+                  if (!pdfSaving) togglePdfDownload(checked);
+                }}
+              />
+              <Label htmlFor="questionnaire-pdf" className="text-sm">
+                הורדת PDF למשיב
               </Label>
             </div>
             {questionnaire.isDraft && (

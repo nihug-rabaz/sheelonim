@@ -27,12 +27,13 @@ export interface QuestionSectionInput {
 }
 
 export interface QuestionInput {
+  id?: string;
   type: QuestionType;
   title: string;
   required: boolean;
   sectionId: string;
   allowMultiple?: boolean;
-  options?: { label: string; allowFreeText?: boolean }[];
+  options?: { id?: string; label: string; allowFreeText?: boolean }[];
   followUp?: { label: string; required: boolean } | null;
   minRating?: number;
   maxRating?: number;
@@ -47,6 +48,7 @@ export interface QuestionnaireInput {
   isActive: boolean;
   closesAt: string | null;
   thankYouMessage: string;
+  allowRespondentPdfDownload?: boolean;
   sections: QuestionSectionInput[];
   questions: QuestionInput[];
   logoSettings?: QuestionnaireLogoSettings;
@@ -96,6 +98,7 @@ export class QuestionnaireService {
       isActive: isDraft ? false : input.isActive,
       closesAt: input.closesAt,
       thankYouMessage: input.thankYouMessage || DEFAULT_THANK_YOU_MESSAGE,
+      allowRespondentPdfDownload: input.allowRespondentPdfDownload ?? true,
       sections,
       questions: this.buildQuestions(input.questions, sectionIdMap),
       logoSettings: input.logoSettings ?? emptyLogoSettings(),
@@ -165,6 +168,8 @@ export class QuestionnaireService {
       isActive: nextIsActive,
       closesAt: input.closesAt !== undefined ? input.closesAt : existing.closesAt,
       thankYouMessage: input.thankYouMessage ?? existing.thankYouMessage,
+      allowRespondentPdfDownload:
+        input.allowRespondentPdfDownload ?? existing.allowRespondentPdfDownload,
       sections,
       questions,
       logoSettings: input.logoSettings ?? existing.logoSettings,
@@ -268,7 +273,7 @@ export class QuestionnaireService {
     sectionIdMap: Map<string, string>
   ): Question[] {
     return inputs.map((q, index) => ({
-      id: uuidv4(),
+      id: q.id ?? uuidv4(),
       type: q.type,
       title: q.title,
       required: q.required,
@@ -276,7 +281,7 @@ export class QuestionnaireService {
       sectionId: sectionIdMap.get(q.sectionId) ?? q.sectionId,
       allowMultiple: q.type === "MULTIPLE_CHOICE" ? (q.allowMultiple ?? false) : undefined,
       options: q.options?.map((o) => ({
-        id: uuidv4(),
+        id: o.id ?? uuidv4(),
         label: o.label,
         allowFreeText: o.allowFreeText ?? false,
       })),

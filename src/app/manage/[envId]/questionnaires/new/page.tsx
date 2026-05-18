@@ -18,13 +18,16 @@ function NewQuestionnaireContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const envId = params.envId as string;
+  const editId = searchParams.get("edit");
   const draftId = searchParams.get("draft");
+  const loadId = editId ?? draftId;
+  const isPublishedEdit = !!editId;
 
   const [loading, setLoading] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
-  const [draftLoadingState, setDraftLoadingState] = useState(!!draftId);
+  const [draftLoadingState, setDraftLoadingState] = useState(!!loadId);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
-  const [questionnaireId, setQuestionnaireId] = useState<string | null>(draftId);
+  const [questionnaireId, setQuestionnaireId] = useState<string | null>(loadId);
   const [initialState, setInitialState] = useState<
     ReturnType<typeof mapQuestionnaireToBuilderState> | undefined
   >(undefined);
@@ -46,21 +49,25 @@ function NewQuestionnaireContent() {
   }, [envId]);
 
   useEffect(() => {
-    if (!draftId) {
+    if (!loadId) {
       setDraftLoadingState(false);
       return;
     }
-    fetch(`/api/questionnaires/${draftId}`)
+    fetch(`/api/questionnaires/${loadId}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.questionnaire) {
           const q = data.questionnaire as Questionnaire;
+          if (editId && q.isDraft) {
+            router.replace(`/manage/${envId}/questionnaires/new?draft=${q.id}`);
+            return;
+          }
           setInitialState(mapQuestionnaireToBuilderState(q));
           setQuestionnaireId(q.id);
         }
         setDraftLoadingState(false);
       });
-  }, [draftId]);
+  }, [loadId, editId, envId, router]);
 
   const savePayload = (data: QuestionBuilderFormData, isDraft: boolean) => ({
     environmentId: envId,
@@ -110,7 +117,13 @@ function NewQuestionnaireContent() {
     setLoading(false);
 
     if (!res.ok) {
-      toast.error(result.error ?? "שגיאה ביצירת השאלון");
+      toast.error(result.error ?? "שגיאה בשמירת השאלון");
+      return;
+    }
+
+    if (isPublishedEdit) {
+      toast.success("השאלון עודכן");
+      router.push(`/manage/${envId}/questionnaires/${result.questionnaire.id}`);
       return;
     }
 
@@ -118,10 +131,16 @@ function NewQuestionnaireContent() {
     setQuestionnaireId(result.questionnaire.id);
   };
 
+  const pageTitle = isPublishedEdit
+    ? "עריכת שאלון"
+    : draftId
+      ? "עריכת טיוטה"
+      : "הקמת שאלון";
+
   return (
     <>
       <ManagePageHeader
-        title={draftId ? "עריכת טיוטה" : "הקמת שאלון"}
+        title={pageTitle}
         subtitle="הגדרת שאלות והגדרות השאלון"
       />
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
@@ -134,7 +153,8 @@ function NewQuestionnaireContent() {
           <QuestionBuilder
             key={questionnaireId ?? "new"}
             onSubmit={handleSubmit}
-            onSaveDraft={handleSaveDraft}
+            onSaveDraft={isPublishedEdit ? undefined : handleSaveDraft}
+            isPublishedEdit={isPublishedEdit}
             loading={loading}
             draftLoading={draftLoading}
             environmentLogos={environmentLogos}

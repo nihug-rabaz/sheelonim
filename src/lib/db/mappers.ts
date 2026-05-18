@@ -63,6 +63,7 @@ export function mapQuestionnaire(row: QuestionnaireRow): Questionnaire {
     isActive: row.isActive,
     closesAt: row.closesAt,
     thankYouMessage: row.thankYouMessage,
+    allowRespondentPdfDownload: row.allowRespondentPdfDownload ?? true,
     sections: row.sections ?? [],
     questions: row.questions,
     logoSettings: row.logoSettings ?? emptyLogoSettings(),

@@ -12,6 +12,7 @@ export interface QuestionBuilderInitialState {
   closesAt: string;
   useDefaultMessage: boolean;
   thankYouMessage: string;
+  allowRespondentPdfDownload: boolean;
   sections: QuestionSectionInput[];
   questions: QuestionInput[];
   logoSettings: Questionnaire["logoSettings"];
@@ -42,12 +43,14 @@ export function mapQuestionnaireToBuilderState(
   const questions: QuestionInput[] = [...questionnaire.questions]
     .sort((a, b) => a.order - b.order)
     .map((q) => ({
+      id: q.id,
       type: q.type,
       title: q.title,
       required: q.required,
       sectionId: q.sectionId ?? sections[0]?.id ?? "",
       allowMultiple: q.allowMultiple,
       options: q.options?.map((o) => ({
+        id: o.id,
         label: o.label,
         allowFreeText: o.allowFreeText,
       })),
@@ -65,6 +68,7 @@ export function mapQuestionnaireToBuilderState(
     useDefaultMessage:
       questionnaire.thankYouMessage === DEFAULT_THANK_YOU_MESSAGE,
     thankYouMessage: questionnaire.thankYouMessage,
+    allowRespondentPdfDownload: questionnaire.allowRespondentPdfDownload ?? true,
     sections: sections.length > 0 ? sections : [],
     questions,
     logoSettings: questionnaire.logoSettings,

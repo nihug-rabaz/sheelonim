@@ -30,6 +30,7 @@ export async function GET(
       sections: questionnaire.sections,
       questions: questionnaire.questions,
       thankYouMessage: questionnaire.thankYouMessage,
+      allowRespondentPdfDownload: questionnaire.allowRespondentPdfDownload ?? true,
       logos: resolved?.logos ?? [],
       logoSize: resolved?.size ?? "md",
       respondentAllowlistEnabled: isRespondentAllowlistEnabled(

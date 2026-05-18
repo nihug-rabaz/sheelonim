@@ -64,6 +64,9 @@ export const questionnaires = pgTable("questionnaires", {
   isActive: boolean("is_active").notNull().default(true),
   closesAt: timestamp("closes_at", { withTimezone: true, mode: "string" }),
   thankYouMessage: text("thank_you_message").notNull(),
+  allowRespondentPdfDownload: boolean("allow_respondent_pdf_download")
+    .notNull()
+    .default(true),
   sections: jsonb("sections").$type<QuestionSection[]>().notNull().default([]),
   questions: jsonb("questions").$type<Question[]>().notNull(),
   logoSettings: jsonb("logo_settings")

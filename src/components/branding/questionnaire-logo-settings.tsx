@@ -60,6 +60,7 @@ export function QuestionnaireLogoSettingsEditor({
       isActive: true,
       closesAt: null,
       thankYouMessage: "",
+      allowRespondentPdfDownload: true,
       sections: [],
       questions: [],
       logoSettings: settings,

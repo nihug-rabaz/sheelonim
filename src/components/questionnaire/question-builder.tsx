@@ -66,6 +66,7 @@ export type QuestionBuilderFormData = {
   isActive: boolean;
   closesAt: string | null;
   thankYouMessage: string;
+  allowRespondentPdfDownload: boolean;
   sections: QuestionSectionInput[];
   questions: QuestionInput[];
   logoSettings: QuestionnaireLogoSettings;
@@ -77,6 +78,7 @@ interface QuestionBuilderProps {
   initialState?: QuestionBuilderInitialState;
   onSubmit: (data: QuestionBuilderFormData) => Promise<void>;
   onSaveDraft?: (data: QuestionBuilderFormData) => Promise<void>;
+  isPublishedEdit?: boolean;
   loading?: boolean;
   draftLoading?: boolean;
 }
@@ -90,6 +92,7 @@ function buildEmptyState(): QuestionBuilderInitialState {
     closesAt: "",
     useDefaultMessage: true,
     thankYouMessage: DEFAULT_THANK_YOU_MESSAGE,
+    allowRespondentPdfDownload: true,
     sections: [section],
     questions: [createQuestion(section.id!, "REGULAR")],
     logoSettings: emptyLogoSettings(),
@@ -99,6 +102,7 @@ function buildEmptyState(): QuestionBuilderInitialState {
 export function QuestionBuilder({
   onSubmit,
   onSaveDraft,
+  isPublishedEdit = false,
   loading,
   draftLoading,
   environmentLogos = [],
@@ -115,6 +119,9 @@ export function QuestionBuilder({
   const [closesAt, setClosesAt] = useState(seed.closesAt);
   const [useDefaultMessage, setUseDefaultMessage] = useState(seed.useDefaultMessage);
   const [thankYouMessage, setThankYouMessage] = useState(seed.thankYouMessage);
+  const [allowRespondentPdfDownload, setAllowRespondentPdfDownload] = useState(
+    seed.allowRespondentPdfDownload
+  );
   const [sections, setSections] = useState<QuestionSectionInput[]>(seed.sections);
   const [questions, setQuestions] = useState<QuestionInput[]>(seed.questions);
   const [logoSettings, setLogoSettings] = useState<QuestionnaireLogoSettings>(
@@ -214,6 +221,7 @@ export function QuestionBuilder({
     isActive,
     closesAt: closesAt ? new Date(closesAt).toISOString() : null,
     thankYouMessage: useDefaultMessage ? DEFAULT_THANK_YOU_MESSAGE : thankYouMessage,
+    allowRespondentPdfDownload,
     sections: sections.map((s) => ({
       id: s.id,
       title: s.title.trim(),
@@ -291,14 +299,20 @@ export function QuestionBuilder({
               className="mt-2"
             />
           </div>
-          {!onSaveDraft && (
-          <div className="flex flex-wrap items-center gap-8">
+          {(!onSaveDraft || isPublishedEdit) && (
             <div className="flex items-center gap-3">
               <Switch checked={isActive} onCheckedChange={setIsActive} id="active" />
               <Label htmlFor="active">שאלון פעיל</Label>
             </div>
-          </div>
           )}
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={allowRespondentPdfDownload}
+              onCheckedChange={setAllowRespondentPdfDownload}
+              id="allowPdf"
+            />
+            <Label htmlFor="allowPdf">אפשר למשיב להוריד עותק PDF בסיום</Label>
+          </div>
           <div>
             <Label htmlFor="closesAt">תאריך ושעת סגירה (אופציונלי)</Label>
             <Input
@@ -762,7 +776,13 @@ export function QuestionBuilder({
           </Button>
         )}
         <Button type="submit" size="lg" disabled={loading || draftLoading}>
-          {loading ? "יוצר שאלון..." : "יצירת שאלון וקבלת קישור"}
+          {loading
+            ? isPublishedEdit
+              ? "שומר..."
+              : "יוצר שאלון..."
+            : isPublishedEdit
+              ? "שמירת שאלון"
+              : "יצירת שאלון וקבלת קישור"}
         </Button>
       </div>
     </form>

@@ -59,6 +59,7 @@ export function createSeedData(): DataStore {
         isActive: true,
         closesAt: null,
         thankYouMessage: DEFAULT_THANK_YOU_MESSAGE,
+        allowRespondentPdfDownload: true,
         sections: [
           {
             id: "sec-demo",

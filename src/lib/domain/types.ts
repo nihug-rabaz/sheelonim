@@ -115,6 +115,7 @@ export interface Questionnaire {
   isActive: boolean;
   closesAt: string | null;
   thankYouMessage: string;
+  allowRespondentPdfDownload: boolean;
   sections: QuestionSection[];
   questions: Question[];
   logoSettings: QuestionnaireLogoSettings;

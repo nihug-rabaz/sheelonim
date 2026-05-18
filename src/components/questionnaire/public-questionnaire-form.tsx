@@ -32,6 +32,7 @@ interface PublicQuestionnaire {
   sections: QuestionSection[];
   questions: Question[];
   thankYouMessage: string;
+  allowRespondentPdfDownload: boolean;
   logos: BrandLogo[];
   logoSize: LogoSize;
   respondentAllowlistEnabled: boolean;
@@ -301,10 +302,12 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
             </div>
             <h1 className="text-2xl font-bold text-foreground">תודה!</h1>
             <p className="mt-4 leading-relaxed text-muted-foreground">{thankYou}</p>
-            <Button className="mt-8 gap-2" variant="outline" onClick={downloadPdf}>
-              <Download className="size-4" />
-              הורדת עותק PDF
-            </Button>
+            {questionnaire.allowRespondentPdfDownload && (
+              <Button className="mt-8 gap-2" variant="outline" onClick={downloadPdf}>
+                <Download className="size-4" />
+                הורדת עותק PDF
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -445,37 +448,39 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                         <li key={opt.id}>
                           <label
                             className={cn(
-                              "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+                              "flex cursor-pointer gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+                              opt.allowFreeText
+                                ? "flex-col items-stretch sm:flex-row sm:items-center"
+                                : "items-center",
                               isChoiceSelected(q, opt.id)
                                 ? "border-primary/35 bg-primary/5"
                                 : "border-border/60 bg-muted/15 hover:bg-muted/30"
                             )}
                           >
-                            <input
-                              type={q.allowMultiple ? "checkbox" : "radio"}
-                              name={q.allowMultiple ? undefined : q.id}
-                              checked={isChoiceSelected(q, opt.id)}
-                              onChange={() => selectChoice(q, opt.id)}
-                              className="size-4 shrink-0 accent-primary"
-                            />
-                            {opt.allowFreeText ? (
-                              <span className="flex min-w-0 flex-1 items-baseline gap-1">
-                                <span className="shrink-0 text-sm font-medium">
-                                  {opt.label || "אחר"}:
-                                </span>
-                                <input
-                                  type="text"
-                                  value={optionTexts[q.id]?.[opt.id] ?? ""}
-                                  onChange={(e) =>
-                                    setOptionText(q, opt.id, e.target.value)
-                                  }
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="min-w-0 flex-1 border-0 border-b border-muted-foreground/30 bg-transparent px-0 py-0.5 text-sm outline-none transition-colors focus:border-primary"
-                                  placeholder="השלמה..."
-                                />
+                            <span className="flex items-start gap-3">
+                              <input
+                                type={q.allowMultiple ? "checkbox" : "radio"}
+                                name={q.allowMultiple ? undefined : q.id}
+                                checked={isChoiceSelected(q, opt.id)}
+                                onChange={() => selectChoice(q, opt.id)}
+                                className="mt-0.5 size-4 shrink-0 accent-primary"
+                              />
+                              <span className="text-sm leading-snug">
+                                {opt.allowFreeText
+                                  ? `${opt.label || "אחר"}:`
+                                  : opt.label}
                               </span>
-                            ) : (
-                              <span className="text-sm">{opt.label}</span>
+                            </span>
+                            {opt.allowFreeText && (
+                              <Input
+                                value={optionTexts[q.id]?.[opt.id] ?? ""}
+                                onChange={(e) =>
+                                  setOptionText(q, opt.id, e.target.value)
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="השלמה..."
+                                className="w-full"
+                              />
                             )}
                           </label>
                           {errors[`${q.id}:${opt.id}`] && (
