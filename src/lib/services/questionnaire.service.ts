@@ -13,6 +13,7 @@ import type {
 import { normalizeRatingLabels } from "@/lib/rating-scale";
 import { DEFAULT_THANK_YOU_MESSAGE } from "@/lib/domain/types";
 import { repositories } from "@/lib/repositories";
+import { getPublicQuestionnaireUrl } from "@/lib/app-url";
 import { generateSlug } from "@/lib/utils";
 
 export interface QuestionSectionInput {
@@ -191,8 +192,7 @@ export class QuestionnaireService {
   }
 
   getPublicUrl(slug: string): string {
-    const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    return `${base}/q/${slug}`;
+    return getPublicQuestionnaireUrl(slug);
   }
 
   private validatePublishInput(input: QuestionnaireInput): void {
