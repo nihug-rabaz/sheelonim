@@ -124,7 +124,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   const validateIdentity = () => {
     const errs: Record<string, string> = {};
     if (!isValidIsraeliPhone(phone)) {
-      errs.phone = "×ž×¡×¤×¨ ×˜×œ×¤×•×Ÿ ×œ× ×ª×§×™×Ÿ (05X-XXXXXXX)";
+      errs.phone = "מספר טלפון לא תקין (05X-XXXXXXX)";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -146,7 +146,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     const data = await res.json();
     setVerifying(false);
     if (!res.ok) {
-      setAccessDenied(data.error ?? "××™×Ÿ ×œ×š ×”×¨×©××” ×œ×¢× ×•×ª ×¢×œ ×©××œ×•×Ÿ ×–×”");
+      setAccessDenied(data.error ?? "אין לך הרשאה לענות על שאלון זה");
       return;
     }
     setStep("form");
@@ -160,7 +160,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
       const val = answers[q.id];
       if (q.required) {
         if (val === undefined || val === "" || (Array.isArray(val) && !val.length)) {
-          errs[q.id] = "×©×“×” ×—×•×‘×”";
+          errs[q.id] = "שדה חובה";
         }
       }
       if (q.type === "MULTIPLE_CHOICE") {
@@ -168,7 +168,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         for (const optionId of selected) {
           const option = q.options?.find((o) => o.id === optionId);
           if (option?.allowFreeText && !optionTexts[q.id]?.[optionId]?.trim()) {
-            errs[`${q.id}:${optionId}`] = "× × ×œ×ž×œ× ×”×©×œ×ž×”";
+            errs[`${q.id}:${optionId}`] = "נא למלא השלמה";
           }
         }
       }
@@ -176,7 +176,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         isFollowUpRequired(q.followUp, q, val) &&
         !followUpTexts[q.id]?.trim()
       ) {
-        errs[`${q.id}:followUp`] = "×©×“×” ×—×•×‘×”";
+        errs[`${q.id}:followUp`] = "שדה חובה";
       }
       if (q.type === "YES_NO" && q.yesNoConfig) {
         const branchFields = getYesNoBranchFields(q.yesNoConfig, val);
@@ -338,7 +338,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setSubmitError(data.error ?? "×©×’×™××” ×‘×©×œ×™×—×”");
+      setSubmitError(data.error ?? "שגיאה בשליחה");
       return;
     }
 
@@ -366,7 +366,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   if (loading) {
     return (
       <div className="flex min-h-full flex-1 items-center justify-center">
-        <p className="text-slate-500">×˜×•×¢×Ÿ ×©××œ×•×Ÿ...</p>
+        <p className="text-slate-500">טוען שאלון...</p>
       </div>
     );
   }
@@ -377,7 +377,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         <Card className="max-w-md">
           <CardContent className="py-10 text-center">
             <p className="text-lg font-medium text-foreground">
-              {unavailableReason || "×”×©××œ×•×Ÿ ××™× ×• ×–×ž×™×Ÿ ×›×¨×’×¢"}
+              {unavailableReason || "השאלון אינו זמין כרגע"}
             </p>
           </CardContent>
         </Card>
@@ -391,14 +391,14 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         <Card className="max-w-lg shadow-lg shadow-primary/10">
           <CardContent className="py-10 text-center">
             <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-primary/10 text-3xl text-primary">
-              âœ“
+              ✓
             </div>
-            <h1 className="text-2xl font-bold text-foreground">×ª×•×“×”!</h1>
+            <h1 className="text-2xl font-bold text-foreground">תודה!</h1>
             <p className="mt-4 leading-relaxed text-muted-foreground">{thankYou}</p>
             {questionnaire.allowRespondentPdfDownload && (
               <Button className="mt-8 gap-2" variant="outline" onClick={downloadPdf}>
                 <Download className="size-4" />
-                ×”×•×¨×“×ª ×¢×•×ª×§ PDF
+                הורדת עותק PDF
               </Button>
             )}
           </CardContent>
@@ -424,12 +424,12 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
 
         {step === "identify" ? (
           <SectionCard
-            title="×–×™×”×•×™ ×œ×¤× ×™ ×ž×™×œ×•×™ ×”×©××œ×•×Ÿ"
-            description="× × ×œ×”×–×™×Ÿ ×ž×¡×¤×¨ ×˜×œ×¤×•×Ÿ ×œ×–×™×”×•×™ ×œ×¤× ×™ ×ª×—×™×œ×ª ×”×ž×™×œ×•×™"
+            title="זיהוי לפני מילוי השאלון"
+            description="נא להזין מספר טלפון לזיהוי לפני תחילת המילוי"
             icon={UserRound}
           >
             <div className="space-y-5">
-              <FormField label="×ž×¡×¤×¨ ×˜×œ×¤×•×Ÿ" htmlFor="phone">
+              <FormField label="מספר טלפון" htmlFor="phone">
                 <Input
                   id="phone"
                   value={phone}
@@ -458,7 +458,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                 disabled={verifying}
                 onClick={() => proceedToForm()}
               >
-                {verifying ? "×‘×•×“×§ ×”×¨×©××”..." : "×”×ž×©×š ×œ×©××œ×•×Ÿ"}
+                {verifying ? "בודק הרשאה..." : "המשך לשאלון"}
               </Button>
             </div>
           </SectionCard>
@@ -535,7 +535,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                           }
                           onClick={() => setAnswer(q.id, true)}
                         >
-                          ×›×Ÿ
+                          כן
                         </Button>
                         <Button
                           type="button"
@@ -544,7 +544,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                           }
                           onClick={() => setAnswer(q.id, false)}
                         >
-                          ×œ×
+                          לא
                         </Button>
                       </div>
                       <PublicYesNoBranchFields
@@ -595,7 +595,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                               />
                               <span className="text-sm leading-snug">
                                 {opt.allowFreeText
-                                  ? `${opt.label || "××—×¨"}:`
+                                  ? `${opt.label || "אחר"}:`
                                   : opt.label}
                               </span>
                             </span>
@@ -606,7 +606,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
                                   setOptionText(q, opt.id, e.target.value)
                                 }
                                 onClick={(e) => e.stopPropagation()}
-                                placeholder="×”×©×œ×ž×”..."
+                                placeholder="השלמה..."
                                 className="w-full"
                               />
                             )}
@@ -676,7 +676,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
 
             <Button type="submit" size="lg" className="w-full gap-2">
               <Send className="h-4 w-4" />
-              ×©×œ×™×—×ª ×”×©××œ×•×Ÿ
+              שליחת השאלון
             </Button>
           </form>
         )}
