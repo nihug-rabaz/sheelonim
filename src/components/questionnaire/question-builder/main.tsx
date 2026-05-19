@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { ChevronDown, ChevronLeft, GripVertical, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  Copy,
+  GripVertical,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import type {
   BrandLogo,
   LogoSize,
@@ -35,14 +42,38 @@ import { BuilderRatingScaleEditor } from "@/components/questionnaire/rating-scal
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DetailsPanel } from "@/components/questionnaire/question-builder/details-panel";
 import { LogosPanel } from "@/components/questionnaire/question-builder/logos-panel";
+import { ChoiceOptionsEditor } from "@/components/questionnaire/question-builder/choice-options-editor";
 import {
   buildEmptyState,
+  cloneQuestionInput,
   createLabelBlock,
+  createMultipleChoiceOptions,
   createQuestion,
   createSection,
   questionSummaryLabel,
   type QuestionBuilderFormData,
 } from "@/components/questionnaire/question-builder/utils";
+
+function AddSectionButtons({
+  onAddRegular,
+  onAddRating,
+}: {
+  onAddRegular: () => void;
+  onAddRating: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={onAddRegular}>
+        <Plus className="h-4 w-4" />
+        פרק רגיל
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={onAddRating}>
+        <Plus className="h-4 w-4" />
+        פרק דירוג
+      </Button>
+    </div>
+  );
+}
 
 export type { QuestionBuilderFormData };
 
@@ -206,6 +237,35 @@ export function QuestionBuilder({
     setQuestions((prev) => [...prev, createLabelBlock(sectionId)]);
   };
 
+  const setAllSectionQuestionsRequired = (sectionId: string) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.sectionId === sectionId && q.type !== "LABEL"
+          ? { ...q, required: true }
+          : q
+      )
+    );
+  };
+
+  const duplicateQuestionAt = (index: number) => {
+    const copy = cloneQuestionInput(questions[index]);
+    setQuestions((prev) => {
+      const next = [...prev];
+      next.splice(index + 1, 0, copy);
+      const newIndex = index + 1;
+      setExpandedQuestionIndices((exp) => {
+        const updated = new Set<number>();
+        for (const i of exp) {
+          if (i < index) updated.add(i);
+          else if (i > index) updated.add(i + 1);
+        }
+        updated.add(newIndex);
+        return updated;
+      });
+      return next;
+    });
+  };
+
   const removeQuestion = (index: number) => {
     const target = questions[index];
     const sectionCount = questions.filter((q) => q.sectionId === target.sectionId)
@@ -271,7 +331,10 @@ export function QuestionBuilder({
     if (!onSaveDraft) return;
     setError("");
     if (!title.trim()) {
-      setError("נא להזין כותרת לשמירת הטיוטה");
+      const message = "נא להזין כותרת לשמירת הטיוטה";
+      setError(message);
+      setBuilderTab("details");
+      toast.error(message);
       return;
     }
     await onSaveDraft(buildFormData());
@@ -328,26 +391,10 @@ export function QuestionBuilder({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">פרקים ושאלות</h2>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addSection("REGULAR")}
-            >
-              <Plus className="h-4 w-4" />
-              פרק רגיל
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addSection("RATING")}
-            >
-              <Plus className="h-4 w-4" />
-              פרק דירוג
-            </Button>
-          </div>
+          <AddSectionButtons
+            onAddRegular={() => addSection("REGULAR")}
+            onAddRating={() => addSection("RATING")}
+          />
         </div>
 
         {sections.map((section, sectionIndex) => {
@@ -420,12 +467,22 @@ export function QuestionBuilder({
               contentClassName="space-y-5"
             >
               {section.id ? (
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {!isRatingSection && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAllSectionQuestionsRequired(section.id!)}
+                    >
+                      כל השאלות חובה
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="gap-1 text-muted-foreground"
+                    className="ms-auto gap-1 text-muted-foreground"
                     onClick={() => toggleSectionExpanded(section.id!)}
                   >
                     <ChevronDown className="size-4" />
@@ -544,6 +601,15 @@ export function QuestionBuilder({
                             type="button"
                             variant="ghost"
                             size="icon"
+                            onClick={() => duplicateQuestionAt(index)}
+                            aria-label="שכפול שאלה"
+                          >
+                            <Copy className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => removeQuestion(index)}
                             disabled={sectionQuestions.length <= 1}
                           >
@@ -576,6 +642,16 @@ export function QuestionBuilder({
                               variant="ghost"
                               size="icon"
                               className="size-9"
+                              onClick={() => duplicateQuestionAt(index)}
+                              aria-label="שכפול שאלה"
+                            >
+                              <Copy className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-9"
                               onClick={() => removeQuestion(index)}
                               disabled={sectionQuestions.length <= 1}
                             >
@@ -602,6 +678,14 @@ export function QuestionBuilder({
                                       required: false,
                                       followUp: null,
                                       yesNoConfig: null,
+                                    });
+                                  } else if (type === "MULTIPLE_CHOICE") {
+                                    updateQuestion(index, {
+                                      type,
+                                      options:
+                                        question.options && question.options.length > 0
+                                          ? question.options
+                                          : createMultipleChoiceOptions(),
                                     });
                                   } else {
                                     updateQuestion(index, { type });
@@ -688,87 +772,11 @@ export function QuestionBuilder({
                                 בחירה מרובה
                               </label>
                             </div>
-                            <div className="space-y-2">
-                              <Label>אפשרויות</Label>
-                              {(question.options ?? []).map((opt, optIndex) => (
-                                <div
-                                  key={optIndex}
-                                  className="space-y-2 rounded-lg border border-border/50 bg-background p-3"
-                                >
-                                  <div className="flex gap-2">
-                                    <Input
-                                      value={opt.label}
-                                      onChange={(e) => {
-                                        const options = [...(question.options ?? [])];
-                                        options[optIndex] = {
-                                          ...options[optIndex],
-                                          label: e.target.value,
-                                        };
-                                        updateQuestion(index, { options });
-                                      }}
-                                      placeholder={`אפשרות ${optIndex + 1}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        const options = (question.options ?? []).filter(
-                                          (_, i) => i !== optIndex
-                                        );
-                                        updateQuestion(index, { options });
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      checked={!!opt.allowFreeText}
-                                      onCheckedChange={(v) => {
-                                        const options = [...(question.options ?? [])];
-                                        const current = options[optIndex];
-                                        options[optIndex] = {
-                                          ...current,
-                                          allowFreeText: v,
-                                          label:
-                                            v && /^אפשרות \d+$/.test(current.label.trim())
-                                              ? "אחר"
-                                              : current.label,
-                                        };
-                                        updateQuestion(index, { options });
-                                      }}
-                                      id={`free-text-${index}-${optIndex}`}
-                                    />
-                                    <Label
-                                      htmlFor={`free-text-${index}-${optIndex}`}
-                                      className="text-sm font-normal"
-                                    >
-                                      אפשרות ״אחר״ עם שדה להשלמה
-                                    </Label>
-                                  </div>
-                                </div>
-                              ))}
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  updateQuestion(index, {
-                                    options: [
-                                      ...(question.options ?? []),
-                                      {
-                                        id: uuidv4(),
-                                        label: `אפשרות ${(question.options?.length ?? 0) + 1}`,
-                                      },
-                                    ],
-                                  })
-                                }
-                              >
-                                <Plus className="h-4 w-4" />
-                                הוסף אפשרות
-                              </Button>
-                            </div>
+                            <ChoiceOptionsEditor
+                              question={question}
+                              questionIndex={index}
+                              onChange={(options) => updateQuestion(index, { options })}
+                            />
                           </div>
                         )}
 
@@ -910,6 +918,13 @@ export function QuestionBuilder({
             </SectionCard>
           );
         })}
+
+        <div className="flex justify-end border-t border-border/60 pt-4">
+          <AddSectionButtons
+            onAddRegular={() => addSection("REGULAR")}
+            onAddRating={() => addSection("RATING")}
+          />
+        </div>
         </TabsContent>
       </Tabs>
 

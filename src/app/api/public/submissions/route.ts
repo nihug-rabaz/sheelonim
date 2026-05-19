@@ -7,7 +7,8 @@ import {
 import type { SubmissionAnswer } from "@/lib/domain/types";
 
 export async function POST(request: Request) {
-  const { slug, phone, answers } = await request.json();
+  const { slug, phone, answers, preview } = await request.json();
+  const isPreview = preview === true;
 
   const questionnaire = await questionnaireService.getBySlug(slug);
   if (!questionnaire) {
@@ -15,11 +16,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const submission = await submissionService.submit(
-      questionnaire,
-      phone,
-      answers as SubmissionAnswer[]
-    );
+    const submission = isPreview
+      ? await submissionService.submitPreview(
+          questionnaire,
+          phone,
+          answers as SubmissionAnswer[]
+        )
+      : await submissionService.submit(
+          questionnaire,
+          phone,
+          answers as SubmissionAnswer[]
+        );
     return NextResponse.json({
       submissionId: submission.id,
       thankYouMessage: questionnaire.thankYouMessage,

@@ -172,15 +172,28 @@ class MemorySubmissionRepository implements ISubmissionRepository {
   }
 
   async save(submission: Submission) {
-    const duplicate = getStore().submissions.some(
-      (s) =>
-        s.questionnaireId === submission.questionnaireId &&
-        s.phone === submission.phone
-    );
-    if (duplicate) {
-      throw new Error("DUPLICATE_SUBMISSION");
+    const store = getStore();
+    if (submission.isPreview) {
+      store.submissions = store.submissions.filter(
+        (s) =>
+          !(
+            s.questionnaireId === submission.questionnaireId &&
+            s.phone === submission.phone &&
+            s.isPreview
+          )
+      );
+    } else {
+      const duplicate = store.submissions.some(
+        (s) =>
+          s.questionnaireId === submission.questionnaireId &&
+          s.phone === submission.phone &&
+          !s.isPreview
+      );
+      if (duplicate) {
+        throw new Error("DUPLICATE_SUBMISSION");
+      }
     }
-    getStore().submissions.push(submission);
+    store.submissions.push(submission);
   }
 }
 

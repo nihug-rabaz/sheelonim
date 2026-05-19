@@ -16,6 +16,7 @@ import {
   isValidIsraeliPhone,
   normalizePhone,
 } from "@/lib/validators/phone";
+import { filterLiveSubmissions } from "@/lib/submission-utils";
 import { allowlistService } from "@/lib/services/allowlist.service";
 import { questionnaireService } from "@/lib/services/questionnaire.service";
 
@@ -50,7 +51,7 @@ export class SubmissionService {
       undefined,
       normalizePhone(phone)
     );
-    return existing.length > 0;
+    return filterLiveSubmissions(existing).length > 0;
   }
 
   async assertCanSubmitByPhone(
@@ -102,6 +103,7 @@ export class SubmissionService {
       phone: normalizedPhone,
       answers,
       submittedAt: new Date().toISOString(),
+      isPreview: false,
     };
     try {
       await repositories.submissions.save(submission);
@@ -114,19 +116,53 @@ export class SubmissionService {
     return submission;
   }
 
+  async submitPreview(
+    questionnaire: Questionnaire,
+    phone: string,
+    answers: SubmissionAnswer[]
+  ): Promise<Submission> {
+    const previewAvailability =
+      questionnaireService.isPreviewAvailable(questionnaire);
+    if (!previewAvailability.available) {
+      throw new Error(previewAvailability.reason ?? "בדיקה אינה זמינה");
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!isValidIsraeliPhone(normalizedPhone)) {
+      throw new Error("מספר טלפון לא תקין");
+    }
+
+    this.validateAnswers(questionnaire.questions, answers);
+
+    const submission: Submission = {
+      id: uuidv4(),
+      questionnaireId: questionnaire.id,
+      nationalId: "",
+      phone: normalizedPhone,
+      answers,
+      submittedAt: new Date().toISOString(),
+      isPreview: true,
+    };
+    await repositories.submissions.save(submission);
+    return submission;
+  }
+
   async getByQuestionnaire(questionnaireId: string): Promise<Submission[]> {
-    return repositories.submissions.findByQuestionnaire(questionnaireId);
+    const all = await repositories.submissions.findByQuestionnaire(questionnaireId);
+    return filterLiveSubmissions(all);
   }
 
   async findRespondentSubmissions(
     questionnaireId: string,
-    phone: string
+    phone: string,
+    options?: { includePreview?: boolean }
   ): Promise<Submission[]> {
-    return repositories.submissions.findByRespondent(
+    const all = await repositories.submissions.findByRespondent(
       questionnaireId,
       undefined,
       normalizePhone(phone)
     );
+    return options?.includePreview ? all : filterLiveSubmissions(all);
   }
 
   private validateAnswers(questions: Question[], answers: SubmissionAnswer[]): void {

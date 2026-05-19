@@ -32,6 +32,45 @@ export function createLabelBlock(sectionId: string): QuestionInput {
   };
 }
 
+export const DEFAULT_OPTION_LABEL_PATTERN = /^אפשרות \d+$/;
+
+export function isDefaultOptionLabel(label: string): boolean {
+  const trimmed = label.trim();
+  return !trimmed || DEFAULT_OPTION_LABEL_PATTERN.test(trimmed);
+}
+
+export function createMultipleChoiceOptions(count = 2) {
+  return Array.from({ length: count }, () => ({
+    id: uuidv4(),
+    label: "",
+  }));
+}
+
+export function cloneQuestionInput(question: QuestionInput): QuestionInput {
+  return {
+    ...question,
+    id: undefined,
+    options: question.options?.map((o) => ({
+      ...o,
+      id: uuidv4(),
+    })),
+    followUp: question.followUp ? { ...question.followUp } : null,
+    yesNoConfig: question.yesNoConfig
+      ? {
+          yesFields: question.yesNoConfig.yesFields?.map((f) => ({
+            ...f,
+            id: uuidv4(),
+          })),
+          noFields: question.yesNoConfig.noFields?.map((f) => ({
+            ...f,
+            id: uuidv4(),
+          })),
+        }
+      : null,
+    ratingLabels: question.ratingLabels ? [...question.ratingLabels] : undefined,
+  };
+}
+
 export function createQuestion(
   sectionId: string,
   sectionType: SectionType = "REGULAR"
@@ -42,10 +81,7 @@ export function createQuestion(
     required: false,
     sectionId,
     allowMultiple: false,
-    options: [
-      { id: uuidv4(), label: "אפשרות 1" },
-      { id: uuidv4(), label: "אפשרות 2" },
-    ],
+    options: createMultipleChoiceOptions(),
     minRating: 1,
     maxRating: 5,
     ratingLabels: normalizeRatingLabels(1, 5),

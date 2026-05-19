@@ -17,14 +17,17 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const { phone } = await request.json();
+  const { phone, preview } = await request.json();
+  const isPreview = preview === true;
 
   const questionnaire = await questionnaireService.getBySlug(slug);
   if (!questionnaire) {
     return NextResponse.json({ error: "שאלון לא נמצא" }, { status: 404 });
   }
 
-  const availability = questionnaireService.isAvailable(questionnaire);
+  const availability = isPreview
+    ? questionnaireService.isPreviewAvailable(questionnaire)
+    : questionnaireService.isAvailable(questionnaire);
   if (!availability.available) {
     return NextResponse.json(
       { error: availability.reason ?? "השאלון אינו זמין" },
@@ -42,32 +45,34 @@ export async function POST(
     (await repositories.questionnaires.findById(questionnaire.id)) ??
     questionnaire;
 
-  try {
-    await submissionService.assertCanSubmitByPhone(
-      latestQuestionnaire.id,
+  if (!isPreview) {
+    try {
+      await submissionService.assertCanSubmitByPhone(
+        latestQuestionnaire.id,
+        normalizedPhone
+      );
+    } catch (e) {
+      if (e instanceof DuplicateSubmissionError) {
+        return NextResponse.json(
+          { error: e.message, allowed: false, alreadySubmitted: true },
+          { status: 409 }
+        );
+      }
+      throw e;
+    }
+
+    const allowed = await allowlistService.verifyRespondent(
+      latestQuestionnaire,
       normalizedPhone
     );
-  } catch (e) {
-    if (e instanceof DuplicateSubmissionError) {
+
+    if (!allowed) {
       return NextResponse.json(
-        { error: e.message, allowed: false, alreadySubmitted: true },
-        { status: 409 }
+        { error: RESPONDENT_ACCESS_DENIED_MESSAGE, allowed: false },
+        { status: 403 }
       );
     }
-    throw e;
   }
 
-  const allowed = await allowlistService.verifyRespondent(
-    latestQuestionnaire,
-    normalizedPhone
-  );
-
-  if (!allowed) {
-    return NextResponse.json(
-      { error: RESPONDENT_ACCESS_DENIED_MESSAGE, allowed: false },
-      { status: 403 }
-    );
-  }
-
-  return NextResponse.json({ allowed: true });
+  return NextResponse.json({ allowed: true, previewMode: isPreview });
 }

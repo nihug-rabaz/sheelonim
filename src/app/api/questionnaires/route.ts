@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   const {
     environmentId,
     title,
+    subtitle,
     description,
     isDraft,
     isActive,
@@ -48,23 +49,31 @@ export async function POST(request: Request) {
   const session = await requireEnvironmentAccess(environmentId);
   if (session instanceof NextResponse) return session;
 
-  const questionnaire = await questionnaireService.create({
-    environmentId,
-    title: title.trim(),
-    description: description?.trim() ?? "",
-    isDraft: isDraft ?? false,
-    isActive: isActive ?? true,
-    closesAt: closesAt ?? null,
-    thankYouMessage: thankYouMessage ?? "",
-    allowRespondentPdfDownload: allowRespondentPdfDownload ?? true,
-    sections: sections ?? [],
-    questions: (questions ?? []) as QuestionInput[],
-    logoSettings,
-    createdById: session.userId,
-  });
+  try {
+    const questionnaire = await questionnaireService.create({
+      environmentId,
+      title: (title ?? "").trim(),
+      subtitle: subtitle?.trim() ?? "",
+      description: description?.trim() ?? "",
+      isDraft: isDraft ?? false,
+      isActive: isActive ?? true,
+      closesAt: closesAt ?? null,
+      thankYouMessage: thankYouMessage ?? "",
+      allowRespondentPdfDownload: allowRespondentPdfDownload ?? true,
+      sections: sections ?? [],
+      questions: (questions ?? []) as QuestionInput[],
+      logoSettings,
+      createdById: session.userId,
+    });
 
-  return NextResponse.json({
-    questionnaire,
-    publicUrl: questionnaireService.getPublicUrl(questionnaire.slug),
-  });
+    return NextResponse.json({
+      questionnaire,
+      publicUrl: questionnaireService.getPublicUrl(questionnaire.slug),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "שגיאה בשמירה" },
+      { status: 400 }
+    );
+  }
 }

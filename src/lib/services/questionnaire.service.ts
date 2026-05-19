@@ -195,6 +195,19 @@ export class QuestionnaireService {
     await repositories.questionnaires.delete(id);
   }
 
+  isPreviewAvailable(questionnaire: Questionnaire): {
+    available: boolean;
+    reason?: string;
+  } {
+    if (!questionnaire.isDraft) {
+      return {
+        available: false,
+        reason: "בדיקת שאלון זמינה רק כשהשאלון במצב טיוטה",
+      };
+    }
+    return { available: true };
+  }
+
   isAvailable(questionnaire: Questionnaire): {
     available: boolean;
     reason?: string;

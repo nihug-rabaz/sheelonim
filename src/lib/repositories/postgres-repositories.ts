@@ -316,6 +316,17 @@ export class PostgresSubmissionRepository implements ISubmissionRepository {
   }
 
   async save(submission: Submission): Promise<void> {
+    if (submission.isPreview) {
+      await getDb()
+        .delete(submissions)
+        .where(
+          and(
+            eq(submissions.questionnaireId, submission.questionnaireId),
+            eq(submissions.phone, submission.phone),
+            eq(submissions.isPreview, true)
+          )
+        );
+    }
     await getDb().insert(submissions).values({
       id: submission.id,
       questionnaireId: submission.questionnaireId,
@@ -323,6 +334,7 @@ export class PostgresSubmissionRepository implements ISubmissionRepository {
       phone: submission.phone,
       answers: submission.answers,
       submittedAt: submission.submittedAt,
+      isPreview: submission.isPreview ?? false,
     });
   }
 }

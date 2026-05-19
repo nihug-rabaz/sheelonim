@@ -168,6 +168,7 @@ export interface Submission {
   phone: string;
   answers: SubmissionAnswer[];
   submittedAt: string;
+  isPreview?: boolean;
 }
 
 export interface DataStore {

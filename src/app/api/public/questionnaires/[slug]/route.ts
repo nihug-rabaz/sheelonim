@@ -5,17 +5,20 @@ import { repositories } from "@/lib/repositories";
 import { questionnaireService } from "@/lib/services";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  const preview = new URL(request.url).searchParams.get("preview") === "1";
   const questionnaire = await questionnaireService.getBySlug(slug);
 
   if (!questionnaire) {
     return NextResponse.json({ error: "שאלון לא נמצא" }, { status: 404 });
   }
 
-  const availability = questionnaireService.isAvailable(questionnaire);
+  const availability = preview
+    ? questionnaireService.isPreviewAvailable(questionnaire)
+    : questionnaireService.isAvailable(questionnaire);
   const environment = await repositories.environments.findById(
     questionnaire.environmentId
   );
@@ -40,5 +43,6 @@ export async function GET(
     },
     available: availability.available,
     unavailableReason: availability.reason,
+    previewMode: preview,
   });
 }

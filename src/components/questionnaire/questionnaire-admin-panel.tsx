@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, Pencil, Search } from "lucide-react";
+import { Download, ExternalLink, Pencil, Search } from "lucide-react";
 import { CopyLinkButton } from "@/components/questionnaire/copy-link-button";
 import type {
   BrandLogo,
@@ -20,7 +20,9 @@ import { RespondentAllowlistEditor } from "@/components/questionnaire/respondent
 import { apiErrorMessage, readJsonResponse } from "@/lib/api/read-json-response";
 import { getQuestionTypeLabel } from "@/lib/question-types";
 import type { QuestionAnalytics } from "@/lib/services/analytics.service";
+import { CrossTabPanel } from "@/components/analytics/cross-tab-panel";
 import { QuestionChart } from "@/components/analytics/question-chart";
+import { SubmissionsDataTable } from "@/components/questionnaire/submissions-data-table";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
@@ -407,6 +409,17 @@ export function QuestionnaireAdminPanel({
               <Pencil className="size-4" />
               עריכת שאלון
             </Link>
+            {questionnaire.isDraft && (
+              <Link
+                href={`/q/${questionnaire.slug}?preview=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
+              >
+                <ExternalLink className="size-4" />
+                בדיקת שאלון
+              </Link>
+            )}
             <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <Switch
                 id="questionnaire-active"
@@ -538,45 +551,10 @@ export function QuestionnaireAdminPanel({
             ייצוא לאקסל
           </Button>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full min-w-[600px] text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="p-3 text-right">טלפון</th>
-                <th className="p-3 text-right">תאריך</th>
-                {questionnaire.questions.map((q) => (
-                  <th key={q.id} className="p-3 text-right max-w-[120px] truncate">
-                    {q.title}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={2 + questionnaire.questions.length}
-                    className="p-8 text-center text-slate-400"
-                  >
-                    אין תשובות עדיין
-                  </td>
-                </tr>
-              ) : (
-                submissions.map((s) => (
-                  <tr key={s.id} className="border-t border-slate-100">
-                    <td className="p-3">{formatPhoneDisplay(s.phone)}</td>
-                    <td className="p-3">{formatDateTime(s.submittedAt)}</td>
-                    {questionnaire.questions.map((q) => (
-                      <td key={q.id} className="p-3 max-w-[150px] truncate">
-                        {answerText(questionnaire, s, q.id)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <SubmissionsDataTable
+          questionnaire={questionnaire}
+          submissions={submissions}
+        />
         </TabsContent>
 
         <TabsContent value="respondent" className="mt-4">
@@ -617,8 +595,8 @@ export function QuestionnaireAdminPanel({
                 <ul className="space-y-3 rounded-xl border border-border/60 bg-muted/30 p-5">
                   {questionnaire.questions.map((q) => (
                     <li key={q.id}>
-                      <p className="text-sm font-medium text-slate-700">{q.title}</p>
-                      <p className="text-slate-900">
+                      <p className="text-sm font-bold text-slate-800">{q.title}</p>
+                      <p className="mt-1 text-slate-900">
                         {answerText(questionnaire, selected, q.id)}
                       </p>
                     </li>
@@ -631,7 +609,8 @@ export function QuestionnaireAdminPanel({
         </Card>
         </TabsContent>
 
-        <TabsContent value="analytics" className="mt-4">
+        <TabsContent value="analytics" className="mt-4 space-y-6">
+        <CrossTabPanel questionnaire={questionnaire} submissions={submissions} />
         <div className="grid gap-6 lg:grid-cols-2">
           {analytics.map((a) => (
             <QuestionChart key={a.questionId} data={a} />

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Download, Send } from "lucide-react";
@@ -79,7 +79,13 @@ function getFormBlocks(questionnaire: PublicQuestionnaire): FormBlock[] {
   return blocks;
 }
 
-export function PublicQuestionnaireForm({ slug }: { slug: string }) {
+export function PublicQuestionnaireForm({
+  slug,
+  previewMode = false,
+}: {
+  slug: string;
+  previewMode?: boolean;
+}) {
   const [loading, setLoading] = useState(true);
   const [available, setAvailable] = useState(false);
   const [unavailableReason, setUnavailableReason] = useState("");
@@ -112,7 +118,8 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   } | null>(null);
 
   useEffect(() => {
-    fetch(`/api/public/questionnaires/${slug}`)
+    const previewQuery = previewMode ? "?preview=1" : "";
+    fetch(`/api/public/questionnaires/${slug}${previewQuery}`)
       .then((r) => r.json())
       .then((data) => {
         setQuestionnaire(data.questionnaire);
@@ -120,7 +127,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         setUnavailableReason(data.unavailableReason ?? "");
         setLoading(false);
       });
-  }, [slug]);
+  }, [slug, previewMode]);
 
   const validateIdentity = () => {
     const errs: Record<string, string> = {};
@@ -138,7 +145,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
     const res = await fetch(`/api/public/questionnaires/${slug}/verify-respondent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, preview: previewMode }),
     });
     const data = await res.json();
     setVerifying(false);
@@ -331,6 +338,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         slug,
         phone: normalizePhone(phone),
         answers: payload,
+        preview: previewMode,
       }),
     });
     const data = await res.json();
@@ -407,6 +415,11 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   return (
     <div className="min-h-full flex-1 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 py-10 px-4">
       <div className="mx-auto w-full max-w-6xl px-2">
+        {previewMode && (
+          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-950">
+            מצב בדיקה — התשובות לא ייכללו בדוחות ולא ייחשבו מענה אמיתי
+          </div>
+        )}
         <header className="mb-8 text-center">
           <QuestionnaireLogoBar
             logos={questionnaire.logos}

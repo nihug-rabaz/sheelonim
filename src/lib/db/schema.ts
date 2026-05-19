@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   jsonb,
@@ -5,7 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
-  unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type {
   BrandLogo,
@@ -105,11 +106,13 @@ export const submissions = pgTable(
     answers: jsonb("answers").$type<SubmissionAnswer[]>().notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true, mode: "string" })
       .notNull(),
+    isPreview: boolean("is_preview").notNull().default(false),
   },
   (table) => ({
-    questionnairePhoneUnique: unique("submissions_questionnaire_phone_unique").on(
-      table.questionnaireId,
-      table.phone
-    ),
+    questionnairePhoneLiveUnique: uniqueIndex(
+      "submissions_questionnaire_phone_live_unique"
+    )
+      .on(table.questionnaireId, table.phone)
+      .where(sql`${table.isPreview} = false`),
   })
 );

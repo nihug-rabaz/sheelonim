@@ -95,5 +95,6 @@ export function mapSubmission(row: SubmissionRow): Submission {
     phone: row.phone,
     answers: row.answers,
     submittedAt: row.submittedAt,
+    isPreview: row.isPreview ?? false,
   };
 }

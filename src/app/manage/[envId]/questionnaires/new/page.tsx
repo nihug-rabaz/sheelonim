@@ -53,6 +53,7 @@ function NewQuestionnaireContent() {
       setDraftLoadingState(false);
       return;
     }
+    setDraftLoadingState(true);
     fetch(`/api/questionnaires/${loadId}`)
       .then((r) => r.json())
       .then((data) => {
@@ -65,8 +66,8 @@ function NewQuestionnaireContent() {
           setInitialState(mapQuestionnaireToBuilderState(q));
           setQuestionnaireId(q.id);
         }
-        setDraftLoadingState(false);
-      });
+      })
+      .finally(() => setDraftLoadingState(false));
   }, [loadId, editId, envId, router]);
 
   const savePayload = (data: QuestionBuilderFormData, isDraft: boolean) => ({
@@ -95,10 +96,11 @@ function NewQuestionnaireContent() {
       return;
     }
 
-    const id = result.questionnaire.id as string;
-    setQuestionnaireId(id);
+    const q = result.questionnaire as Questionnaire;
+    setInitialState(mapQuestionnaireToBuilderState(q));
+    setQuestionnaireId(q.id);
     if (!draftId) {
-      router.replace(`/manage/${envId}/questionnaires/new?draft=${id}`);
+      router.replace(`/manage/${envId}/questionnaires/new?draft=${q.id}`);
     }
   };
 
@@ -151,7 +153,6 @@ function NewQuestionnaireContent() {
           </div>
         ) : (
           <QuestionBuilder
-            key={questionnaireId ?? "new"}
             onSubmit={handleSubmit}
             onSaveDraft={isPublishedEdit ? undefined : handleSaveDraft}
             isPublishedEdit={isPublishedEdit}
