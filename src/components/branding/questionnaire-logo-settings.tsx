@@ -54,6 +54,7 @@ export function QuestionnaireLogoSettingsEditor({
       id: "",
       environmentId: "",
       title: "",
+      subtitle: "",
       description: "",
       slug: "",
       isDraft: false,

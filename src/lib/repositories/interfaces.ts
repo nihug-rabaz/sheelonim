@@ -1,5 +1,6 @@
 import type {
   Environment,
+  EnvironmentListItem,
   EnvironmentManager,
   Questionnaire,
   Submission,
@@ -16,6 +17,7 @@ export interface IUserRepository {
 export interface IEnvironmentRepository {
   findById(id: string): Promise<Environment | undefined>;
   findAll(): Promise<Environment[]>;
+  findAllListItems(): Promise<EnvironmentListItem[]>;
   save(environment: Environment): Promise<void>;
   delete(id: string): Promise<void>;
 }

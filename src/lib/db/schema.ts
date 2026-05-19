@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import type {
   BrandLogo,
@@ -58,6 +59,7 @@ export const questionnaires = pgTable("questionnaires", {
     .notNull()
     .references(() => environments.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  subtitle: text("subtitle").notNull().default(""),
   description: text("description").notNull().default(""),
   slug: text("slug").notNull().unique(),
   isDraft: boolean("is_draft").notNull().default(false),
@@ -91,14 +93,23 @@ export const questionnaires = pgTable("questionnaires", {
     .notNull(),
 });
 
-export const submissions = pgTable("submissions", {
-  id: text("id").primaryKey(),
-  questionnaireId: text("questionnaire_id")
-    .notNull()
-    .references(() => questionnaires.id, { onDelete: "cascade" }),
-  nationalId: text("national_id").notNull(),
-  phone: text("phone").notNull(),
-  answers: jsonb("answers").$type<SubmissionAnswer[]>().notNull(),
-  submittedAt: timestamp("submitted_at", { withTimezone: true, mode: "string" })
-    .notNull(),
-});
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: text("id").primaryKey(),
+    questionnaireId: text("questionnaire_id")
+      .notNull()
+      .references(() => questionnaires.id, { onDelete: "cascade" }),
+    nationalId: text("national_id").notNull(),
+    phone: text("phone").notNull(),
+    answers: jsonb("answers").$type<SubmissionAnswer[]>().notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true, mode: "string" })
+      .notNull(),
+  },
+  (table) => ({
+    questionnairePhoneUnique: unique("submissions_questionnaire_phone_unique").on(
+      table.questionnaireId,
+      table.phone
+    ),
+  })
+);

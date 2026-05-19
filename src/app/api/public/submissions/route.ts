@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { questionnaireService, submissionService } from "@/lib/services";
+import {
+  DuplicateSubmissionError,
+  questionnaireService,
+  submissionService,
+} from "@/lib/services";
 import type { SubmissionAnswer } from "@/lib/domain/types";
 
 export async function POST(request: Request) {
@@ -21,9 +25,10 @@ export async function POST(request: Request) {
       thankYouMessage: questionnaire.thankYouMessage,
     });
   } catch (e) {
+    const duplicate = e instanceof DuplicateSubmissionError;
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "שגיאה בשליחה" },
-      { status: 400 }
+      { status: duplicate ? 409 : 400 }
     );
   }
 }

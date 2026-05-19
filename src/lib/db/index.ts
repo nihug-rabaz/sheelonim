@@ -1,9 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import { getDatabaseUrl } from "@/lib/env";
 import * as schema from "@/lib/db/schema";
 
 function createDb() {
-  const url = process.env.DATABASE_URL;
+  const url = getDatabaseUrl();
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
@@ -22,6 +23,4 @@ export function getDb(): Db {
   return globalDb.__sheelonimDb;
 }
 
-export function isDatabaseEnabled(): boolean {
-  return Boolean(process.env.DATABASE_URL);
-}
+export { isDatabaseEnabled } from "@/lib/env";

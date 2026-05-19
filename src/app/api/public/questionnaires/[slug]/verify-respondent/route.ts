@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { RESPONDENT_ACCESS_DENIED_MESSAGE } from "@/lib/respondent-allowlist";
 import { repositories } from "@/lib/repositories";
-import { allowlistService, questionnaireService } from "@/lib/services";
+import {
+  allowlistService,
+  DuplicateSubmissionError,
+  questionnaireService,
+  submissionService,
+} from "@/lib/services";
 import {
   isValidIsraeliPhone,
   normalizePhone,
@@ -36,6 +41,22 @@ export async function POST(
   const latestQuestionnaire =
     (await repositories.questionnaires.findById(questionnaire.id)) ??
     questionnaire;
+
+  try {
+    await submissionService.assertCanSubmitByPhone(
+      latestQuestionnaire.id,
+      normalizedPhone
+    );
+  } catch (e) {
+    if (e instanceof DuplicateSubmissionError) {
+      return NextResponse.json(
+        { error: e.message, allowed: false, alreadySubmitted: true },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
+
   const allowed = await allowlistService.verifyRespondent(
     latestQuestionnaire,
     normalizedPhone

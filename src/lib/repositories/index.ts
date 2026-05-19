@@ -16,6 +16,26 @@ const postgresRepositories = {
   submissions: new PostgresSubmissionRepository(),
 };
 
-export const repositories = isDatabaseEnabled()
-  ? postgresRepositories
-  : memoryRepositories;
+type RepositoryBundle = typeof postgresRepositories;
+
+function resolveRepositories(): RepositoryBundle {
+  return isDatabaseEnabled() ? postgresRepositories : memoryRepositories;
+}
+
+export const repositories: RepositoryBundle = {
+  get users() {
+    return resolveRepositories().users;
+  },
+  get environments() {
+    return resolveRepositories().environments;
+  },
+  get environmentManagers() {
+    return resolveRepositories().environmentManagers;
+  },
+  get questionnaires() {
+    return resolveRepositories().questionnaires;
+  },
+  get submissions() {
+    return resolveRepositories().submissions;
+  },
+};

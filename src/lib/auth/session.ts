@@ -1,11 +1,10 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import type { UserRole } from "@/lib/domain/types";
+import { getAuthSecret } from "@/lib/env";
 
 const COOKIE_NAME = "sheelonim_session";
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "dev-secret-change-in-production"
-);
+const secret = new TextEncoder().encode(getAuthSecret());
 
 export interface SessionPayload {
   userId: string;

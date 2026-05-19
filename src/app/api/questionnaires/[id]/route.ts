@@ -11,19 +11,32 @@ export async function GET(
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
 
-  const questionnaire = await questionnaireService.getById(id);
-  if (!questionnaire) {
-    return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
-  }
+  try {
+    const questionnaire = await questionnaireService.getById(id);
+    if (!questionnaire) {
+      return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+    }
 
-  if (!(await environmentService.canAccess(session, questionnaire.environmentId))) {
-    return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
-  }
+    if (!(await environmentService.canAccess(session, questionnaire.environmentId))) {
+      return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
+    }
 
-  return NextResponse.json({
-    questionnaire,
-    publicUrl: questionnaireService.getPublicUrl(questionnaire.slug),
-  });
+    return NextResponse.json({
+      questionnaire,
+      publicUrl: questionnaireService.getPublicUrl(questionnaire.slug),
+    });
+  } catch (e) {
+    console.error("GET /api/questionnaires/[id]:", e);
+    return NextResponse.json(
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "שגיאה בטעינת השאלון. ודאי שמסד הנתונים מעודכן (npm run db:push).",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PATCH(

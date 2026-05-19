@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/ui/form-field";
 import { SectionCard } from "@/components/ui/section-card";
-import type { Environment } from "@/lib/domain/types";
+import type { EnvironmentListItem } from "@/lib/domain/types";
 
 export function AdminEnvironmentsClient({
   userName,
   initialEnvironments,
 }: {
   userName: string;
-  initialEnvironments: Environment[];
+  initialEnvironments: EnvironmentListItem[];
 }) {
   const [environments, setEnvironments] = useState(initialEnvironments);
   const [name, setName] = useState("");
@@ -119,7 +119,7 @@ export function AdminEnvironmentsClient({
   );
 }
 
-function EnvInfo({ env }: { env: Environment }) {
+function EnvInfo({ env }: { env: EnvironmentListItem }) {
   return (
     <div className="min-w-0 flex-1">
       <p className="font-medium text-foreground">{env.name}</p>

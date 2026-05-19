@@ -47,6 +47,7 @@ export interface QuestionInput {
 export interface QuestionnaireInput {
   environmentId: string;
   title: string;
+  subtitle?: string;
   description: string;
   isDraft?: boolean;
   isActive: boolean;
@@ -96,6 +97,7 @@ export class QuestionnaireService {
       id: uuidv4(),
       environmentId: input.environmentId,
       title: input.title.trim(),
+      subtitle: input.subtitle?.trim() ?? "",
       description: input.description,
       slug,
       isDraft,
@@ -167,6 +169,10 @@ export class QuestionnaireService {
     const updated: Questionnaire = {
       ...existing,
       title: mergedTitle,
+      subtitle:
+        input.subtitle !== undefined
+          ? input.subtitle.trim()
+          : existing.subtitle ?? "",
       description: input.description ?? existing.description,
       isDraft: nextIsDraft,
       isActive: nextIsActive,

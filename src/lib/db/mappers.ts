@@ -2,6 +2,7 @@ import { emptyLogoSettings } from "@/lib/brand-logos";
 import { emptyRespondentAllowlist } from "@/lib/respondent-allowlist";
 import type {
   Environment,
+  EnvironmentListItem,
   EnvironmentManager,
   Questionnaire,
   Submission,
@@ -43,6 +44,17 @@ export function mapEnvironment(row: EnvironmentRow): Environment {
   };
 }
 
+export function mapEnvironmentListItem(row: EnvironmentRow): EnvironmentListItem {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    defaultLogoSize: row.defaultLogoSize ?? "md",
+    createdAt: row.createdAt,
+    logoCount: row.logos?.length ?? 0,
+  };
+}
+
 export function mapEnvironmentManager(row: EnvironmentManagerRow): EnvironmentManager {
   return {
     id: row.id,
@@ -57,6 +69,7 @@ export function mapQuestionnaire(row: QuestionnaireRow): Questionnaire {
     id: row.id,
     environmentId: row.environmentId,
     title: row.title,
+    subtitle: row.subtitle ?? "",
     description: row.description,
     slug: row.slug,
     isDraft: row.isDraft ?? false,

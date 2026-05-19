@@ -55,6 +55,15 @@ export interface Environment {
   createdAt: string;
 }
 
+export interface EnvironmentListItem {
+  id: string;
+  name: string;
+  description: string;
+  defaultLogoSize: LogoSize;
+  createdAt: string;
+  logoCount: number;
+}
+
 export interface EnvironmentManager {
   id: string;
   environmentId: string;
@@ -127,6 +136,7 @@ export interface Questionnaire {
   id: string;
   environmentId: string;
   title: string;
+  subtitle: string;
   description: string;
   slug: string;
   isDraft: boolean;

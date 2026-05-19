@@ -7,7 +7,7 @@ export async function GET() {
   if (session instanceof NextResponse) return session;
 
   const environments =
-    await environmentService.getAccessibleEnvironments(session);
+    await environmentService.getAccessibleEnvironmentList(session);
   return NextResponse.json({ environments });
 }
 

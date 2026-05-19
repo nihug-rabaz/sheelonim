@@ -1,5 +1,6 @@
 import type {
   Environment,
+  EnvironmentListItem,
   EnvironmentManager,
   Questionnaire,
   Submission,
@@ -42,6 +43,17 @@ class MemoryEnvironmentRepository implements IEnvironmentRepository {
 
   async findAll() {
     return [...getStore().environments];
+  }
+
+  async findAllListItems(): Promise<EnvironmentListItem[]> {
+    return getStore().environments.map((environment) => ({
+      id: environment.id,
+      name: environment.name,
+      description: environment.description,
+      defaultLogoSize: environment.defaultLogoSize,
+      createdAt: environment.createdAt,
+      logoCount: environment.logos.length,
+    }));
   }
 
   async save(environment: Environment) {
@@ -160,6 +172,14 @@ class MemorySubmissionRepository implements ISubmissionRepository {
   }
 
   async save(submission: Submission) {
+    const duplicate = getStore().submissions.some(
+      (s) =>
+        s.questionnaireId === submission.questionnaireId &&
+        s.phone === submission.phone
+    );
+    if (duplicate) {
+      throw new Error("DUPLICATE_SUBMISSION");
+    }
     getStore().submissions.push(submission);
   }
 }

@@ -53,6 +53,7 @@ export function createSeedData(): DataStore {
         id: questionnaireId,
         environmentId: envId,
         title: "שאלון שביעות רצון",
+        subtitle: "",
         description: "שאלון לדוגמה — ניתן לערוך או למחוק",
         slug: "demo-survey",
         isDraft: false,

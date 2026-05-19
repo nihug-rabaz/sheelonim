@@ -26,6 +26,7 @@ export async function GET(
     questionnaire: {
       id: questionnaire.id,
       title: questionnaire.title,
+      subtitle: questionnaire.subtitle ?? "",
       description: questionnaire.description,
       sections: questionnaire.sections,
       questions: questionnaire.questions,

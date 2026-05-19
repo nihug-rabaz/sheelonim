@@ -4,7 +4,7 @@ import { AdminEnvironmentsClient } from "@/app/admin/admin-client";
 
 export default async function AdminPage() {
   const session = await getSession();
-  const environments = await environmentService.getAccessibleEnvironments(
+  const environments = await environmentService.getAccessibleEnvironmentList(
     session!
   );
 

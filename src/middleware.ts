@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { getAuthSecret } from "@/lib/env";
 
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "dev-secret-change-in-production"
-);
+const secret = new TextEncoder().encode(getAuthSecret());
 
 const protectedPrefixes = ["/manage", "/admin"];
 

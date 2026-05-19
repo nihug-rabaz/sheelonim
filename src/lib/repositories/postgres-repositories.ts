@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   environmentManagers,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/mappers";
 import type {
   Environment,
+  EnvironmentListItem,
   EnvironmentManager,
   Questionnaire,
   Submission,
@@ -89,6 +90,27 @@ export class PostgresEnvironmentRepository implements IEnvironmentRepository {
   async findAll(): Promise<Environment[]> {
     const rows = await getDb().select().from(environments);
     return rows.map(mapEnvironment);
+  }
+
+  async findAllListItems(): Promise<EnvironmentListItem[]> {
+    const rows = await getDb()
+      .select({
+        id: environments.id,
+        name: environments.name,
+        description: environments.description,
+        defaultLogoSize: environments.defaultLogoSize,
+        createdAt: environments.createdAt,
+        logoCount: sql<number>`coalesce(jsonb_array_length(${environments.logos}), 0)`,
+      })
+      .from(environments);
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      defaultLogoSize: row.defaultLogoSize ?? "md",
+      createdAt: row.createdAt,
+      logoCount: Number(row.logoCount) || 0,
+    }));
   }
 
   async save(environment: Environment): Promise<void> {
@@ -215,6 +237,7 @@ export class PostgresQuestionnaireRepository implements IQuestionnaireRepository
         id: questionnaire.id,
         environmentId: questionnaire.environmentId,
         title: questionnaire.title,
+        subtitle: questionnaire.subtitle ?? "",
         description: questionnaire.description,
         slug: questionnaire.slug,
         isDraft: questionnaire.isDraft,
@@ -234,6 +257,7 @@ export class PostgresQuestionnaireRepository implements IQuestionnaireRepository
         target: questionnaires.id,
         set: {
           title: questionnaire.title,
+          subtitle: questionnaire.subtitle ?? "",
           description: questionnaire.description,
           slug: questionnaire.slug,
           isDraft: questionnaire.isDraft,

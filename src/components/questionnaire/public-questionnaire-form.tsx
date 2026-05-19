@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Download, Send } from "lucide-react";
@@ -38,6 +38,7 @@ import type { BrandLogo, LogoSize } from "@/lib/domain/types";
 import { QuestionnaireLogoBar } from "@/components/branding/questionnaire-logo-bar";
 
 interface PublicQuestionnaire {
+  subtitle?: string;
   id: string;
   title: string;
   description: string;
@@ -133,10 +134,6 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
   const proceedToForm = async () => {
     if (!validateIdentity() || !questionnaire) return;
     setAccessDenied("");
-    if (!questionnaire.respondentAllowlistEnabled) {
-      setStep("form");
-      return;
-    }
     setVerifying(true);
     const res = await fetch(`/api/public/questionnaires/${slug}/verify-respondent`, {
       method: "POST",
@@ -416,7 +413,14 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
             size={questionnaire.logoSize}
             className="mb-6"
           />
-          <h1 className="text-3xl font-bold text-slate-900">{questionnaire.title}</h1>
+          {questionnaire.subtitle?.trim() ? (
+            <p className="mb-2 text-lg font-medium text-slate-600 sm:text-xl">
+              {questionnaire.subtitle.trim()}
+            </p>
+          ) : null}
+          <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+            {questionnaire.title}
+          </h1>
           {questionnaire.description && (
             <p className="mt-2 text-slate-500">{questionnaire.description}</p>
           )}
@@ -425,7 +429,7 @@ export function PublicQuestionnaireForm({ slug }: { slug: string }) {
         {step === "identify" ? (
           <SectionCard
             title="זיהוי לפני מילוי השאלון"
-            description="נא להזין מספר טלפון לזיהוי לפני תחילת המילוי"
+            description="נא להזין מספר טלפון. ניתן למלא את השאלון פעם אחת בלבד לכל מספר."
             icon={UserRound}
           >
             <div className="space-y-5">

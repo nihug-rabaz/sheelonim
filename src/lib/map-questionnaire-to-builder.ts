@@ -7,6 +7,7 @@ import type {
 
 export interface QuestionBuilderInitialState {
   title: string;
+  subtitle: string;
   description: string;
   isActive: boolean;
   closesAt: string;
@@ -63,6 +64,7 @@ export function mapQuestionnaireToBuilderState(
 
   return {
     title: questionnaire.title,
+    subtitle: questionnaire.subtitle ?? "",
     description: questionnaire.description,
     isActive: questionnaire.isActive,
     closesAt: toDatetimeLocalValue(questionnaire.closesAt),

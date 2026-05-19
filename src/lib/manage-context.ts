@@ -7,8 +7,11 @@ export async function getManageContext(environmentId: string) {
   if (!session) redirect("/login");
 
   const environments =
-    await environmentService.getAccessibleEnvironments(session);
-  const environment = environments.find((e) => e.id === environmentId);
+    await environmentService.getAccessibleEnvironmentList(session);
+  const environment = await environmentService.getAccessibleEnvironment(
+    session,
+    environmentId
+  );
 
   if (!environment) redirect("/manage");
 

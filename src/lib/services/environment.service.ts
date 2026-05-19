@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import type {
   BrandLogo,
   Environment,
+  EnvironmentListItem,
   EnvironmentManager,
   LogoSize,
 } from "@/lib/domain/types";
@@ -10,6 +11,43 @@ import { repositories } from "@/lib/repositories";
 import type { SessionPayload } from "@/lib/auth/session";
 
 export class EnvironmentService {
+  async getAccessibleEnvironmentList(
+    session: SessionPayload
+  ): Promise<EnvironmentListItem[]> {
+    if (session.role === "ADMIN") {
+      return repositories.environments.findAllListItems();
+    }
+    const links = await repositories.environmentManagers.findByUser(
+      session.userId
+    );
+    const items = await Promise.all(
+      links.map(async (link) => {
+        const environment = await repositories.environments.findById(
+          link.environmentId
+        );
+        if (!environment) return undefined;
+        return {
+          id: environment.id,
+          name: environment.name,
+          description: environment.description,
+          defaultLogoSize: environment.defaultLogoSize,
+          createdAt: environment.createdAt,
+          logoCount: environment.logos.length,
+        } satisfies EnvironmentListItem;
+      })
+    );
+    return items.filter((item): item is EnvironmentListItem => Boolean(item));
+  }
+
+  async getAccessibleEnvironment(
+    session: SessionPayload,
+    environmentId: string
+  ): Promise<Environment | undefined> {
+    const canAccess = await this.canAccess(session, environmentId);
+    if (!canAccess) return undefined;
+    return repositories.environments.findById(environmentId);
+  }
+
   async getAccessibleEnvironments(
     session: SessionPayload
   ): Promise<Environment[]> {
@@ -51,7 +89,7 @@ export class EnvironmentService {
   async createEnvironment(
     name: string,
     description: string
-  ): Promise<Environment> {
+  ): Promise<EnvironmentListItem> {
     const environment: Environment = {
       id: uuidv4(),
       name,
@@ -61,7 +99,14 @@ export class EnvironmentService {
       createdAt: new Date().toISOString(),
     };
     await repositories.environments.save(environment);
-    return environment;
+    return {
+      id: environment.id,
+      name: environment.name,
+      description: environment.description,
+      defaultLogoSize: environment.defaultLogoSize,
+      createdAt: environment.createdAt,
+      logoCount: 0,
+    };
   }
 
   async updateEnvironment(

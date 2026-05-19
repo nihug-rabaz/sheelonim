@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
+    "db:reset-admin": "tsx scripts/reset-admin-password.ts",
     "favicons": "node scripts/generate-favicons.mjs"
   },
   "dependencies": {

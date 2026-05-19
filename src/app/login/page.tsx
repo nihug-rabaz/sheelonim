@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,7 +29,8 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        credentials: "same-origin",
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       let data: { error?: string; redirect?: string } = {};
@@ -49,8 +48,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(data.redirect ?? "/manage");
-      router.refresh();
+      window.location.assign(data.redirect ?? "/manage");
     } catch {
       setError("שגיאת רשת. נסה שוב.");
     } finally {

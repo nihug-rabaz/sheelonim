@@ -11,8 +11,7 @@ export async function GET(
   const session = await requireEnvironmentAccess(id);
   if (session instanceof NextResponse) return session;
 
-  const environment = await environmentService.getAccessibleEnvironments(session);
-  const env = environment.find((e) => e.id === id);
+  const env = await environmentService.getAccessibleEnvironment(session, id);
   if (!env) {
     return NextResponse.json({ error: "סביבה לא נמצאה" }, { status: 404 });
   }
@@ -31,9 +30,7 @@ export async function PATCH(
   const body = await request.json();
 
   if (body.logos !== undefined || body.defaultLogoSize !== undefined) {
-    const existing = (await environmentService.getAccessibleEnvironments(session)).find(
-      (e) => e.id === id
-    );
+    const existing = await environmentService.getAccessibleEnvironment(session, id);
     if (!existing) {
       return NextResponse.json({ error: "סביבה לא נמצאה" }, { status: 404 });
     }

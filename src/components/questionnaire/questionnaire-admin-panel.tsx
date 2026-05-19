@@ -17,6 +17,7 @@ import { emptyLogoSettings } from "@/lib/brand-logos";
 import { QuestionnaireLogoSettingsEditor } from "@/components/branding/questionnaire-logo-settings";
 import { emptyRespondentAllowlist } from "@/lib/respondent-allowlist";
 import { RespondentAllowlistEditor } from "@/components/questionnaire/respondent-allowlist-editor";
+import { apiErrorMessage, readJsonResponse } from "@/lib/api/read-json-response";
 import { getQuestionTypeLabel } from "@/lib/question-types";
 import type { QuestionAnalytics } from "@/lib/services/analytics.service";
 import { QuestionChart } from "@/components/analytics/question-chart";
@@ -206,21 +207,44 @@ export function QuestionnaireAdminPanel({
       fetch(`/api/questionnaires/${questionnaireId}`),
       fetch(`/api/questionnaires/${questionnaireId}/submissions`),
     ]);
-    const qData = await qRes.json();
-    const sData = await sRes.json();
-    const q = qData.questionnaire as Questionnaire;
-    setQuestionnaire(q);
-    setLogoSettings(q?.logoSettings ?? emptyLogoSettings());
-    setRespondentAllowlist(q?.respondentAllowlist ?? emptyRespondentAllowlist());
-    setPublicUrl(qData.publicUrl ?? "");
-    setSubmissions(sData.submissions ?? []);
-    setAnalytics(sData.analytics ?? []);
-    setFiltered(sData.submissions ?? []);
 
-    if (q?.environmentId) {
+    const qData = await readJsonResponse<{
+      questionnaire?: Questionnaire;
+      publicUrl?: string;
+      error?: string;
+    }>(qRes);
+    const sData = await readJsonResponse<{
+      submissions?: Submission[];
+      analytics?: QuestionAnalytics[];
+      error?: string;
+    }>(sRes);
+
+    if (!qRes.ok || !qData?.questionnaire) {
+      toast.error(
+        apiErrorMessage(qData, "שגיאה בטעינת השאלון. נסי לרענן או להריץ npm run db:push")
+      );
+      return;
+    }
+
+    if (!sRes.ok) {
+      toast.error(apiErrorMessage(sData, "שגיאה בטעינת תשובות השאלון"));
+    }
+
+    const q = qData.questionnaire;
+    setQuestionnaire(q);
+    setLogoSettings(q.logoSettings ?? emptyLogoSettings());
+    setRespondentAllowlist(q.respondentAllowlist ?? emptyRespondentAllowlist());
+    setPublicUrl(qData.publicUrl ?? "");
+    setSubmissions(sData?.submissions ?? []);
+    setAnalytics(sData?.analytics ?? []);
+    setFiltered(sData?.submissions ?? []);
+
+    if (q.environmentId) {
       const envRes = await fetch(`/api/environments/${q.environmentId}`);
-      const envData = await envRes.json();
-      if (envRes.ok) setEnvironment(envData.environment);
+      const envData = await readJsonResponse<{ environment?: Environment; error?: string }>(
+        envRes
+      );
+      if (envRes.ok && envData?.environment) setEnvironment(envData.environment);
     }
   }, [questionnaireId]);
 

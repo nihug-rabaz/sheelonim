@@ -19,7 +19,48 @@ import {
 import { allowlistService } from "@/lib/services/allowlist.service";
 import { questionnaireService } from "@/lib/services/questionnaire.service";
 
+export const DUPLICATE_PHONE_SUBMISSION_MESSAGE =
+  "כבר נשלח מענה לשאלון זה ממספר הטלפון שהזנת";
+
+export class DuplicateSubmissionError extends Error {
+  constructor() {
+    super(DUPLICATE_PHONE_SUBMISSION_MESSAGE);
+    this.name = "DuplicateSubmissionError";
+  }
+}
+
+function isDuplicateSubmissionDbError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    error.message === "DUPLICATE_SUBMISSION" ||
+    message.includes("submissions_questionnaire_phone_unique") ||
+    message.includes("unique constraint") ||
+    message.includes("23505")
+  );
+}
+
 export class SubmissionService {
+  async hasSubmittedByPhone(
+    questionnaireId: string,
+    phone: string
+  ): Promise<boolean> {
+    const existing = await repositories.submissions.findByRespondent(
+      questionnaireId,
+      undefined,
+      normalizePhone(phone)
+    );
+    return existing.length > 0;
+  }
+
+  async assertCanSubmitByPhone(
+    questionnaireId: string,
+    phone: string
+  ): Promise<void> {
+    if (await this.hasSubmittedByPhone(questionnaireId, phone)) {
+      throw new DuplicateSubmissionError();
+    }
+  }
   async submit(
     questionnaire: Questionnaire,
     phone: string,
@@ -50,6 +91,8 @@ export class SubmissionService {
       normalizedPhone
     );
 
+    await this.assertCanSubmitByPhone(latestQuestionnaire.id, normalizedPhone);
+
     this.validateAnswers(questionnaire.questions, answers);
 
     const submission: Submission = {
@@ -60,7 +103,14 @@ export class SubmissionService {
       answers,
       submittedAt: new Date().toISOString(),
     };
-    await repositories.submissions.save(submission);
+    try {
+      await repositories.submissions.save(submission);
+    } catch (error) {
+      if (isDuplicateSubmissionDbError(error)) {
+        throw new DuplicateSubmissionError();
+      }
+      throw error;
+    }
     return submission;
   }
 

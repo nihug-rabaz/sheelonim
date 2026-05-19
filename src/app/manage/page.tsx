@@ -12,7 +12,7 @@ export default async function ManageEnvironmentsPage() {
   if (!session) redirect("/login");
 
   const environments =
-    await environmentService.getAccessibleEnvironments(session);
+    await environmentService.getAccessibleEnvironmentList(session);
 
   if (environments.length === 1) {
     redirect(`/manage/${environments[0].id}`);
