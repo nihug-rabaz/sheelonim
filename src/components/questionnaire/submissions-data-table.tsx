@@ -5,9 +5,17 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { Questionnaire, Submission } from "@/lib/domain/types";
 import { formatQuestionAnswer } from "@/lib/format-question-answer";
 import { isAnswerableQuestion } from "@/lib/question-utils";
+import {
+  type ColumnFiltersState,
+  EMPTY_ANSWER_LABEL,
+  filterSubmissionsByColumns,
+  getColumnFilterOptions,
+  getSubmissionColumnValues,
+  hasActiveColumnFilters,
+} from "@/lib/submission-utils";
 import { formatDateTime } from "@/lib/utils";
 import { formatPhoneDisplay } from "@/lib/validators/phone";
-import { Input } from "@/components/ui/input";
+import { ColumnFilterSelect } from "@/components/questionnaire/column-filter-select";
 import { cn } from "@/lib/utils";
 
 type SortKey = "phone" | "date" | string;
@@ -38,40 +46,39 @@ export function SubmissionsDataTable({
     [questionnaire.questions]
   );
 
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<ColumnFiltersState>({});
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const hasActiveFilters = Object.values(filters).some((v) => v.trim());
+  const hasActiveFilters = hasActiveColumnFilters(filters);
 
-  const filtered = useMemo(() => {
-    return submissions.filter((s) => {
-      if (
-        filters.phone?.trim() &&
-        !formatPhoneDisplay(s.phone)
-          .toLowerCase()
-          .includes(filters.phone.trim().toLowerCase()) &&
-        !s.phone.includes(filters.phone.trim())
-      ) {
-        return false;
-      }
-      if (
-        filters.date?.trim() &&
-        !formatDateTime(s.submittedAt)
-          .toLowerCase()
-          .includes(filters.date.trim().toLowerCase())
-      ) {
-        return false;
-      }
-      for (const q of answerableQuestions) {
-        const filterVal = filters[q.id]?.trim();
-        if (!filterVal) continue;
-        const cell = answerText(questionnaire, s, q.id).toLowerCase();
-        if (!cell.includes(filterVal.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [submissions, filters, answerableQuestions, questionnaire]);
+  const filtered = useMemo(
+    () => filterSubmissionsByColumns(submissions, filters, questionnaire),
+    [submissions, filters, questionnaire]
+  );
+
+  const phoneOptions = useMemo(
+    () => getColumnFilterOptions(submissions, "phone", filters, questionnaire),
+    [submissions, filters, questionnaire]
+  );
+
+  const dateOptions = useMemo(
+    () => getColumnFilterOptions(submissions, "date", filters, questionnaire),
+    [submissions, filters, questionnaire]
+  );
+
+  const questionOptions = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const q of answerableQuestions) {
+      map[q.id] = getColumnFilterOptions(
+        submissions,
+        q.id,
+        filters,
+        questionnaire
+      );
+    }
+    return map;
+  }, [submissions, filters, questionnaire, answerableQuestions]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -102,10 +109,13 @@ export function SubmissionsDataTable({
       const counts = new Map<string, number>();
       let answered = 0;
       for (const s of sorted) {
-        const text = answerText(questionnaire, s, q.id);
-        if (text === "—") continue;
+        const values = getSubmissionColumnValues(q.id, questionnaire, s);
+        if (values.length === 1 && values[0] === EMPTY_ANSWER_LABEL) continue;
         answered += 1;
-        counts.set(text, (counts.get(text) ?? 0) + 1);
+        for (const value of values) {
+          if (value === EMPTY_ANSWER_LABEL) continue;
+          counts.set(value, (counts.get(value) ?? 0) + 1);
+        }
       }
       if (!hasActiveFilters) {
         summaries[q.id] = `${answered} ענו`;
@@ -139,8 +149,8 @@ export function SubmissionsDataTable({
     );
   };
 
-  const setFilter = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const setColumnFilter = (key: string, selected: string[]) => {
+    setFilters((prev) => ({ ...prev, [key]: selected }));
   };
 
   return (
@@ -188,29 +198,26 @@ export function SubmissionsDataTable({
               ))}
             </tr>
             <tr className="border-t border-slate-200 bg-white">
-              <th className="p-2">
-                <Input
-                  value={filters.phone ?? ""}
-                  onChange={(e) => setFilter("phone", e.target.value)}
-                  placeholder="סינון..."
-                  className="h-8 text-xs"
+              <th className="p-2 align-top">
+                <ColumnFilterSelect
+                  options={phoneOptions}
+                  selected={filters.phone ?? []}
+                  onChange={(selected) => setColumnFilter("phone", selected)}
                 />
               </th>
-              <th className="p-2">
-                <Input
-                  value={filters.date ?? ""}
-                  onChange={(e) => setFilter("date", e.target.value)}
-                  placeholder="סינון..."
-                  className="h-8 text-xs"
+              <th className="p-2 align-top">
+                <ColumnFilterSelect
+                  options={dateOptions}
+                  selected={filters.date ?? []}
+                  onChange={(selected) => setColumnFilter("date", selected)}
                 />
               </th>
               {answerableQuestions.map((q) => (
-                <th key={q.id} className="p-2">
-                  <Input
-                    value={filters[q.id] ?? ""}
-                    onChange={(e) => setFilter(q.id, e.target.value)}
-                    placeholder="סינון..."
-                    className="h-8 text-xs"
+                <th key={q.id} className="p-2 align-top">
+                  <ColumnFilterSelect
+                    options={questionOptions[q.id] ?? []}
+                    selected={filters[q.id] ?? []}
+                    onChange={(selected) => setColumnFilter(q.id, selected)}
                   />
                 </th>
               ))}

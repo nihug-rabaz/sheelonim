@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, ExternalLink, Pencil, Search } from "lucide-react";
+import { Download, ExternalLink, Pencil, Search, Settings } from "lucide-react";
 import { CopyLinkButton } from "@/components/questionnaire/copy-link-button";
 import type {
   BrandLogo,
@@ -36,6 +36,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -52,13 +60,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { exportSubmissionsToExcel } from "@/lib/export-submissions-excel";
 
-type Tab =
-  | "questions"
-  | "logos"
-  | "allowlist"
-  | "table"
-  | "respondent"
-  | "analytics";
+type Tab = "analytics" | "table" | "respondent" | "manage";
+type ManageScreen = "questions" | "logos" | "allowlist";
+
+const MANAGE_SCREEN_OPTIONS: { value: ManageScreen; label: string }[] = [
+  { value: "questions", label: "שאלות" },
+  { value: "logos", label: "לוגואים" },
+  { value: "allowlist", label: "מורשים למענה" },
+];
 
 function QuestionsBySectionList({
   questionnaire,
@@ -183,6 +192,7 @@ export function QuestionnaireAdminPanel({
   questionnaireId: string;
 }) {
   const [tab, setTab] = useState<Tab>("analytics");
+  const [manageScreen, setManageScreen] = useState<ManageScreen>("questions");
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [analytics, setAnalytics] = useState<QuestionAnalytics[]>([]);
@@ -398,17 +408,79 @@ export function QuestionnaireAdminPanel({
             <CardDescription className="mt-1">{questionnaire.description}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={
-                questionnaire.isDraft
-                  ? `/manage/${questionnaire.environmentId}/questionnaires/new?draft=${questionnaireId}`
-                  : `/manage/${questionnaire.environmentId}/questionnaires/new?edit=${questionnaireId}`
-              }
-              className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-2")}
-            >
-              <Pencil className="size-4" />
-              עריכת שאלון
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-2"
+                )}
+              >
+                <Settings className="size-4" />
+                הגדרות
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    render={
+                      <Link
+                        href={
+                          questionnaire.isDraft
+                            ? `/manage/${questionnaire.environmentId}/questionnaires/new?draft=${questionnaireId}`
+                            : `/manage/${questionnaire.environmentId}/questionnaires/new?edit=${questionnaireId}`
+                        }
+                        className="flex w-full items-center gap-2"
+                      />
+                    }
+                  >
+                    <Pencil className="size-4" />
+                    עריכת שאלון
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup className="p-1">
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-md px-2 py-2"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Label
+                      htmlFor="questionnaire-active-settings"
+                      className="text-sm font-normal"
+                    >
+                      {questionnaire.isDraft
+                        ? "פרסום והפעלת שאלון"
+                        : "שאלון פעיל"}
+                    </Label>
+                    <Switch
+                      id="questionnaire-active-settings"
+                      checked={!questionnaire.isDraft && questionnaire.isActive}
+                      onCheckedChange={(checked) => {
+                        if (!activeSaving) toggleActive(checked);
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-md px-2 py-2"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Label
+                      htmlFor="questionnaire-pdf-settings"
+                      className="text-sm font-normal"
+                    >
+                      הורדת PDF למשיב
+                    </Label>
+                    <Switch
+                      id="questionnaire-pdf-settings"
+                      checked={questionnaire.allowRespondentPdfDownload ?? true}
+                      onCheckedChange={(checked) => {
+                        if (!pdfSaving) togglePdfDownload(checked);
+                      }}
+                    />
+                  </div>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {questionnaire.isDraft && (
               <Link
                 href={`/q/${questionnaire.slug}?preview=1`}
@@ -420,30 +492,6 @@ export function QuestionnaireAdminPanel({
                 בדיקת שאלון
               </Link>
             )}
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <Switch
-                id="questionnaire-active"
-                checked={!questionnaire.isDraft && questionnaire.isActive}
-                onCheckedChange={(checked) => {
-                  if (!activeSaving) toggleActive(checked);
-                }}
-              />
-              <Label htmlFor="questionnaire-active" className="text-sm">
-                {questionnaire.isDraft ? "פרסום והפעלת שאלון" : "שאלון פעיל"}
-              </Label>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <Switch
-                id="questionnaire-pdf"
-                checked={questionnaire.allowRespondentPdfDownload ?? true}
-                onCheckedChange={(checked) => {
-                  if (!pdfSaving) togglePdfDownload(checked);
-                }}
-              />
-              <Label htmlFor="questionnaire-pdf" className="text-sm">
-                הורדת PDF למשיב
-              </Label>
-            </div>
             {questionnaire.isDraft && (
               <Badge variant="warning">טיוטה</Badge>
             )}
@@ -476,59 +524,76 @@ export function QuestionnaireAdminPanel({
           <TabsTrigger value="analytics">ניתוח גרפי</TabsTrigger>
           <TabsTrigger value="table">טבלת תשובות</TabsTrigger>
           <TabsTrigger value="respondent">תשובה לפי משתמש</TabsTrigger>
-          <TabsTrigger value="questions">שאלות</TabsTrigger>
-          <TabsTrigger value="logos">לוגואים</TabsTrigger>
-          <TabsTrigger value="allowlist">מורשים למענה</TabsTrigger>
+          <TabsTrigger value="manage">ניהול</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="allowlist" className="mt-4">
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <RespondentAllowlistEditor
-                allowlist={respondentAllowlist}
-                onChange={setRespondentAllowlist}
-                onSyncGoogleSheets={syncAllowlistFromSheets}
-                syncing={allowlistSyncing}
-              />
-              <div className="flex items-center gap-3">
-                <Button onClick={saveAllowlist} disabled={allowlistSaving}>
-                  {allowlistSaving ? "שומר..." : "שמירת רשימה"}
-                </Button>
-                {allowlistMessage && (
-                  <span className="text-sm text-muted-foreground">
-                    {allowlistMessage}
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TabsContent value="manage" className="mt-4 space-y-6">
+          <FormField label="מסך" htmlFor="manage-screen">
+            <select
+              id="manage-screen"
+              value={manageScreen}
+              onChange={(e) => setManageScreen(e.target.value as ManageScreen)}
+              className="mt-2 flex h-11 w-full max-w-md rounded-xl border border-slate-200 bg-white px-4 text-sm"
+            >
+              {MANAGE_SCREEN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
 
-        <TabsContent value="logos" className="mt-4">
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <QuestionnaireLogoSettingsEditor
-                environmentLogos={(environment?.logos ?? []) as BrandLogo[]}
-                environmentDefaultLogoSize={
-                  (environment?.defaultLogoSize ?? "md") as LogoSize
-                }
-                settings={logoSettings}
-                onChange={setLogoSettings}
-              />
-              <div className="flex items-center gap-3">
-                <Button onClick={saveLogos} disabled={logoSaving}>
-                  {logoSaving ? "שומר..." : "שמירת לוגואים"}
-                </Button>
-                {logoMessage && (
-                  <span className="text-sm text-muted-foreground">{logoMessage}</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {manageScreen === "questions" && (
+            <QuestionsBySectionList questionnaire={questionnaire} />
+          )}
 
-        <TabsContent value="questions" className="mt-4">
-        <QuestionsBySectionList questionnaire={questionnaire} />
+          {manageScreen === "logos" && (
+              <Card>
+                <CardContent className="space-y-4 pt-6">
+                  <QuestionnaireLogoSettingsEditor
+                    environmentLogos={(environment?.logos ?? []) as BrandLogo[]}
+                    environmentDefaultLogoSize={
+                      (environment?.defaultLogoSize ?? "md") as LogoSize
+                    }
+                    settings={logoSettings}
+                    onChange={setLogoSettings}
+                  />
+                  <div className="flex items-center gap-3">
+                    <Button onClick={saveLogos} disabled={logoSaving}>
+                      {logoSaving ? "שומר..." : "שמירת לוגואים"}
+                    </Button>
+                    {logoMessage && (
+                      <span className="text-sm text-muted-foreground">
+                        {logoMessage}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+          )}
+
+          {manageScreen === "allowlist" && (
+              <Card>
+                <CardContent className="space-y-4 pt-6">
+                  <RespondentAllowlistEditor
+                    allowlist={respondentAllowlist}
+                    onChange={setRespondentAllowlist}
+                    onSyncGoogleSheets={syncAllowlistFromSheets}
+                    syncing={allowlistSyncing}
+                  />
+                  <div className="flex items-center gap-3">
+                    <Button onClick={saveAllowlist} disabled={allowlistSaving}>
+                      {allowlistSaving ? "שומר..." : "שמירת רשימה"}
+                    </Button>
+                    {allowlistMessage && (
+                      <span className="text-sm text-muted-foreground">
+                        {allowlistMessage}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="table" className="mt-4">

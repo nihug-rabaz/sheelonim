@@ -10,8 +10,10 @@ import {
   getSubmissionAnswer,
 } from "@/lib/submission-utils";
 import { isLabelQuestion } from "@/lib/question-utils";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -46,6 +48,7 @@ export function CrossTabPanel({
   const [targetQuestionId, setTargetQuestionId] = useState(
     () => targetQuestions[0]?.id ?? ""
   );
+  const [expanded, setExpanded] = useState(false);
 
   const sourceQuestion = sourceQuestions.find((q) => q.id === sourceQuestionId);
   const targetQuestion = targetQuestions.find((q) => q.id === targetQuestionId);
@@ -85,21 +88,40 @@ export function CrossTabPanel({
   }, [submissions, sourceQuestion, effectiveSourceValue]);
 
   if (sourceQuestions.length === 0 || targetQuestions.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          אין מספיק שאלות להצלבת נתונים
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">הצלבת נתונים</CardTitle>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-4">
+        <div>
+          <CardTitle className="text-base">הצלבת נתונים</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            אופציונלי — בדיקת קשר בין תשובות בשאלות שונות
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? (
+            <>
+              <ChevronDown className="size-4" />
+              הסתר
+            </>
+          ) : (
+            <>
+              <ChevronLeft className="size-4" />
+              הצג הצלבה
+            </>
+          )}
+        </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      {expanded && (
+      <CardContent className="space-y-4 border-t border-border/60 pt-4">
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <Label htmlFor="cross-source-q">שאלת מקור</Label>
@@ -187,6 +209,7 @@ export function CrossTabPanel({
           </Table>
         </div>
       </CardContent>
+      )}
     </Card>
   );
 }

@@ -1,10 +1,12 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Label,
   LabelList,
   Pie,
   PieChart,
@@ -13,6 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { Question } from "@/lib/domain/types";
 import type { QuestionAnalytics } from "@/lib/services/analytics.service";
 import {
   Card,
@@ -48,20 +51,69 @@ function buildSeries(chartData: { label: string; value: number }[]): SeriesDatum
   }));
 }
 
-function ChartLegend({ items }: { items: { label: string; color: string }[] }) {
+function getAxisLabels(type: Question["type"]) {
+  if (type === "RATING") {
+    return { category: "דירוג", count: "מספר מצביעים" };
+  }
+  return { category: "תשובה", count: "מספר מצביעים" };
+}
+
+const tooltipWrapperStyle: CSSProperties = {
+  outline: "none",
+  backgroundColor: "transparent",
+  border: "none",
+  boxShadow: "none",
+  padding: 0,
+};
+
+const tooltipContentStyle: CSSProperties = {
+  backgroundColor: "hsl(var(--background))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: "8px",
+  boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+  padding: 0,
+};
+
+const barHoverCursor = { fill: "hsl(173 58% 39% / 0.12)" };
+
+function ChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload?: SeriesDatum }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-md">
+      <p className="font-medium text-foreground">{row.label}</p>
+      <p className="text-muted-foreground">{row.value} מצביעים</p>
+    </div>
+  );
+}
+
+function ChartLegend({
+  items,
+}: {
+  items: { label: string; color: string; value: number }[];
+}) {
   return (
     <ul className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 px-2">
       {items.map((item, index) => (
         <li
           key={`${index}-${item.label}`}
-          className="flex max-w-[10rem] items-center gap-2 text-xs text-foreground"
+          className="flex max-w-[12rem] items-center gap-2 text-xs text-foreground"
         >
           <span
             className="size-3 shrink-0 rounded-sm"
             style={{ backgroundColor: item.color }}
             aria-hidden
           />
-          <span className="leading-snug">{item.label}</span>
+          <span className="leading-snug">
+            {item.label} ({item.value})
+          </span>
         </li>
       ))}
     </ul>
@@ -112,8 +164,9 @@ export function QuestionChart({ data }: { data: QuestionAnalytics }) {
   const legendItems = series.map((d) => ({
     label: d.label,
     color: d.fill,
+    value: d.value,
   }));
-
+  const axisLabels = getAxisLabels(data.type);
   const usePie = data.type === "YES_NO";
 
   return (
@@ -127,61 +180,103 @@ export function QuestionChart({ data }: { data: QuestionAnalytics }) {
         )}
       </CardHeader>
       <CardContent className="pt-0 pb-5">
-        <div dir="ltr">
-        <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            {usePie ? (
-              <PieChart margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                <Pie
-                  data={series}
-                  dataKey="value"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={72}
-                  innerRadius={28}
-                  paddingAngle={2}
-                  label={false}
-                >
-                  {series.map((entry, index) => (
-                    <Cell key={`${entry.label}-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            ) : (
-              <BarChart
-                data={series}
-                margin={{ top: 24, right: 12, left: 4, bottom: 8 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" hide />
-                <YAxis
-                  allowDecimals={false}
-                  width={32}
-                  tick={{ fontSize: 11 }}
-                  tickMargin={4}
-                />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
-                  labelFormatter={(label) => String(label)}
-                />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                  {series.map((entry, index) => (
-                    <Cell key={`${entry.label}-${index}`} fill={entry.fill} />
-                  ))}
-                  <LabelList
+        <div dir="rtl" className="w-full">
+          <div className="h-72 w-full overflow-visible">
+            <ResponsiveContainer width="100%" height="100%">
+              {usePie ? (
+                <PieChart margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                  <Pie
+                    data={series}
                     dataKey="value"
-                    position="top"
-                    offset={8}
-                    style={{ fill: "hsl(215 16% 35%)", fontSize: 12, fontWeight: 600 }}
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={72}
+                    innerRadius={28}
+                    paddingAngle={2}
+                    label={false}
+                  >
+                    {series.map((entry, index) => (
+                      <Cell key={`${entry.label}-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={<ChartTooltip />}
+                    wrapperStyle={tooltipWrapperStyle}
+                    contentStyle={tooltipContentStyle}
                   />
-                </Bar>
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
-        <ChartLegend items={legendItems} />
+                </PieChart>
+              ) : (
+                <BarChart
+                  data={series}
+                  margin={{ top: 40, right: 16, left: 56, bottom: 76 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    interval={0}
+                    tick={{ fontSize: 11, fill: "hsl(215 16% 35%)" }}
+                    angle={-32}
+                    textAnchor="end"
+                    height={72}
+                    tickMargin={14}
+                  >
+                    <Label
+                      value={axisLabels.category}
+                      position="bottom"
+                      offset={12}
+                      style={{ fontSize: 12, fill: "hsl(215 16% 35%)" }}
+                    />
+                  </XAxis>
+                  <YAxis
+                    allowDecimals={false}
+                    width={40}
+                    tick={{ fontSize: 11, fill: "hsl(215 16% 35%)" }}
+                    tickMargin={8}
+                  >
+                    <Label
+                      value={axisLabels.count}
+                      angle={-90}
+                      position="insideLeft"
+                      offset={-4}
+                      style={{ fontSize: 12, fill: "hsl(215 16% 35%)" }}
+                    />
+                  </YAxis>
+                  <Tooltip
+                    content={<ChartTooltip />}
+                    cursor={barHoverCursor}
+                    wrapperStyle={tooltipWrapperStyle}
+                    contentStyle={tooltipContentStyle}
+                  />
+                  <Bar
+                    dataKey="value"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={48}
+                    activeBar={{
+                      fill: "hsl(173 58% 39% / 0.35)",
+                      stroke: "hsl(173 58% 39%)",
+                      strokeWidth: 1,
+                    }}
+                  >
+                    {series.map((entry, index) => (
+                      <Cell key={`${entry.label}-${index}`} fill={entry.fill} />
+                    ))}
+                    <LabelList
+                      dataKey="value"
+                      position="top"
+                      offset={12}
+                      style={{
+                        fill: "hsl(215 16% 35%)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    />
+                  </Bar>
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+          <ChartLegend items={legendItems} />
         </div>
       </CardContent>
     </Card>
