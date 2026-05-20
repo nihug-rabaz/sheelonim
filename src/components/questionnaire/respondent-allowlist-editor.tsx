@@ -1,17 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Download, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
-import type { QuestionnaireRespondentAllowlist } from "@/lib/domain/types";
+import { ChevronDown, Download, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import type { AllowedRespondent, QuestionnaireRespondentAllowlist } from "@/lib/domain/types";
 import { parseAllowlistCsv, parseAllowlistTxt } from "@/lib/respondent-allowlist";
-import { formatPhoneDisplay } from "@/lib/validators/phone";
+import { formatPhoneDisplay, normalizePhone } from "@/lib/validators/phone";
 import { exportAllowlistToExcel } from "@/lib/export-allowlist-excel";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { FormField } from "@/components/ui/form-field";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -20,6 +27,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+function findDuplicateEntryIds(entries: AllowedRespondent[]): Set<string> {
+  const seen = new Map<string, string>();
+  const duplicates = new Set<string>();
+  for (const entry of entries) {
+    const key = normalizePhone(entry.phone);
+    if (!key) continue;
+    if (seen.has(key)) {
+      duplicates.add(entry.id);
+    } else {
+      seen.set(key, entry.id);
+    }
+  }
+  return duplicates;
+}
 
 interface RespondentAllowlistEditorProps {
   allowlist: QuestionnaireRespondentAllowlist;
@@ -40,6 +62,11 @@ export function RespondentAllowlistEditor({
   const txtFileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState("");
   const [exporting, setExporting] = useState(false);
+
+  const duplicateIds = useMemo(
+    () => findDuplicateEntryIds(allowlist.entries),
+    [allowlist.entries]
+  );
 
   const handleExport = async () => {
     if (exporting || allowlist.entries.length === 0) return;
@@ -168,38 +195,45 @@ export function RespondentAllowlistEditor({
               e.target.value = "";
             }}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => csvFileRef.current?.click()}
-          >
-            <Upload className="h-4 w-4" />
-            ייבוא CSV
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => txtFileRef.current?.click()}
-          >
-            <Upload className="h-4 w-4" />
-            ייבוא TXT
-          </Button>
           <Button type="button" variant="outline" size="sm" onClick={addRow}>
             <Plus className="h-4 w-4" />
             הוספת שורה
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            disabled={exporting || allowlist.entries.length === 0}
-          >
-            <Download className="h-4 w-4" />
-            {exporting ? "מייצא..." : "הורדה לאקסל"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "gap-2"
+              )}
+            >
+              פעולות
+              <ChevronDown className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => csvFileRef.current?.click()}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                ייבוא CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => txtFileRef.current?.click()}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                ייבוא TXT
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExport}
+                disabled={exporting || allowlist.entries.length === 0}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {exporting ? "מייצא..." : "הורדה לאקסל"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {importError && <p className="mt-2 text-sm text-destructive">{importError}</p>}
       </FormField>
@@ -221,7 +255,9 @@ export function RespondentAllowlistEditor({
                 </TableCell>
               </TableRow>
             ) : (
-              allowlist.entries.map((entry, index) => (
+              allowlist.entries.map((entry, index) => {
+                const isDuplicate = duplicateIds.has(entry.id);
+                return (
                 <TableRow key={entry.id}>
                   <TableCell className="text-center text-muted-foreground">
                     {index + 1}
@@ -234,12 +270,24 @@ export function RespondentAllowlistEditor({
                       }
                       placeholder="05X-XXXXXXX"
                       dir="ltr"
-                      className="h-9 font-mono"
+                      aria-invalid={isDuplicate || undefined}
+                      className={cn(
+                        "h-9 font-mono",
+                        isDuplicate &&
+                          "border-destructive focus-visible:ring-destructive/40"
+                      )}
                     />
-                    {entry.phone && formatPhoneDisplay(entry.phone) !== entry.phone && (
-                      <p className="mt-1 text-xs text-muted-foreground" dir="ltr">
-                        {formatPhoneDisplay(entry.phone)}
+                    {isDuplicate ? (
+                      <p className="mt-1 text-xs text-destructive">
+                        מספר זה כבר מופיע ברשימה
                       </p>
+                    ) : (
+                      entry.phone &&
+                      formatPhoneDisplay(entry.phone) !== entry.phone && (
+                        <p className="mt-1 text-xs text-muted-foreground" dir="ltr">
+                          {formatPhoneDisplay(entry.phone)}
+                        </p>
+                      )
                     )}
                   </TableCell>
                   <TableCell className="p-2">
@@ -254,7 +302,8 @@ export function RespondentAllowlistEditor({
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
