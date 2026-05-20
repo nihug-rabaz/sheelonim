@@ -580,6 +580,7 @@ export function QuestionnaireAdminPanel({
                     onChange={setRespondentAllowlist}
                     onSyncGoogleSheets={syncAllowlistFromSheets}
                     syncing={allowlistSyncing}
+                    questionnaireTitle={questionnaire.title}
                   />
                   <div className="flex items-center gap-3">
                     <Button onClick={saveAllowlist} disabled={allowlistSaving}>

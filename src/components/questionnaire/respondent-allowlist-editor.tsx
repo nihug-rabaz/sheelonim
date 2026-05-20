@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Download, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import type { QuestionnaireRespondentAllowlist } from "@/lib/domain/types";
 import { parseAllowlistCsv, parseAllowlistTxt } from "@/lib/respondent-allowlist";
 import { formatPhoneDisplay } from "@/lib/validators/phone";
+import { exportAllowlistToExcel } from "@/lib/export-allowlist-excel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ interface RespondentAllowlistEditorProps {
   onChange: (allowlist: QuestionnaireRespondentAllowlist) => void;
   onSyncGoogleSheets: () => Promise<void>;
   syncing?: boolean;
+  questionnaireTitle?: string;
 }
 
 export function RespondentAllowlistEditor({
@@ -32,10 +34,24 @@ export function RespondentAllowlistEditor({
   onChange,
   onSyncGoogleSheets,
   syncing = false,
+  questionnaireTitle = "",
 }: RespondentAllowlistEditorProps) {
   const csvFileRef = useRef<HTMLInputElement>(null);
   const txtFileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (exporting || allowlist.entries.length === 0) return;
+    setExporting(true);
+    try {
+      await exportAllowlistToExcel(questionnaireTitle, allowlist);
+    } catch {
+      setImportError("שגיאה בייצוא הקובץ");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const updateEntry = (id: string, patch: Partial<{ phone: string }>) => {
     onChange({
@@ -173,6 +189,16 @@ export function RespondentAllowlistEditor({
           <Button type="button" variant="outline" size="sm" onClick={addRow}>
             <Plus className="h-4 w-4" />
             הוספת שורה
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting || allowlist.entries.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            {exporting ? "מייצא..." : "הורדה לאקסל"}
           </Button>
         </div>
         {importError && <p className="mt-2 text-sm text-destructive">{importError}</p>}
