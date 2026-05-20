@@ -43,6 +43,36 @@ function findDuplicateEntryIds(entries: AllowedRespondent[]): Set<string> {
   return duplicates;
 }
 
+interface MergeAllowlistResult {
+  merged: AllowedRespondent[];
+  added: number;
+  alreadyExisted: string[];
+}
+
+function mergeAllowlistEntries(
+  existing: AllowedRespondent[],
+  incoming: AllowedRespondent[]
+): MergeAllowlistResult {
+  const existingKeys = new Set(
+    existing.map((entry) => normalizePhone(entry.phone)).filter(Boolean)
+  );
+  const merged: AllowedRespondent[] = [...existing];
+  const alreadyExisted: string[] = [];
+  const addedKeys = new Set<string>();
+  for (const entry of incoming) {
+    const key = normalizePhone(entry.phone);
+    if (!key) continue;
+    if (existingKeys.has(key)) {
+      alreadyExisted.push(formatPhoneDisplay(entry.phone) || entry.phone);
+      continue;
+    }
+    if (addedKeys.has(key)) continue;
+    addedKeys.add(key);
+    merged.push(entry);
+  }
+  return { merged, added: addedKeys.size, alreadyExisted };
+}
+
 interface RespondentAllowlistEditorProps {
   allowlist: QuestionnaireRespondentAllowlist;
   onChange: (allowlist: QuestionnaireRespondentAllowlist) => void;
@@ -61,6 +91,10 @@ export function RespondentAllowlistEditor({
   const csvFileRef = useRef<HTMLInputElement>(null);
   const txtFileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState("");
+  const [importSummary, setImportSummary] = useState<{
+    added: number;
+    alreadyExisted: string[];
+  } | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const duplicateIds = useMemo(
@@ -109,6 +143,7 @@ export function RespondentAllowlistEditor({
   ) => {
     if (!files?.[0]) return;
     setImportError("");
+    setImportSummary(null);
     try {
       const text = await files[0].text();
       const parsed =
@@ -117,7 +152,14 @@ export function RespondentAllowlistEditor({
         setImportError("לא נמצאו מספרי טלפון תקינים בקובץ");
         return;
       }
-      onChange({ ...allowlist, entries: parsed });
+      const { merged, added, alreadyExisted } = mergeAllowlistEntries(
+        allowlist.entries,
+        parsed
+      );
+      if (added > 0) {
+        onChange({ ...allowlist, entries: merged });
+      }
+      setImportSummary({ added, alreadyExisted });
     } catch {
       setImportError("שגיאה בקריאת הקובץ");
     }
@@ -236,6 +278,25 @@ export function RespondentAllowlistEditor({
           </DropdownMenu>
         </div>
         {importError && <p className="mt-2 text-sm text-destructive">{importError}</p>}
+        {importSummary && (
+          <div className="mt-3 space-y-1 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+            {importSummary.added > 0 ? (
+              <p className="text-foreground">
+                נוספו {importSummary.added} מספרים חדשים לרשימה
+              </p>
+            ) : (
+              <p className="text-muted-foreground">לא נוספו מספרים חדשים מהקובץ</p>
+            )}
+            {importSummary.alreadyExisted.length > 0 && (
+              <p className="text-muted-foreground" dir="rtl">
+                המספרים הבאים כבר קיימים ברשימת המורשים למענה:{" "}
+                <span dir="ltr" className="font-mono">
+                  {importSummary.alreadyExisted.join(", ")}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
       </FormField>
 
       <div className="overflow-x-auto rounded-xl border border-border/60">
